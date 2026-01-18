@@ -51,47 +51,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return; // Don't continue with other initialization
     }
     
-    const themeToggle = document.getElementById('themeToggle');
-    const themeIcon = document.getElementById('themeIcon');
-    const htmlElement = document.documentElement;
-    
-    // Check for saved theme preference or default to light mode
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    
-    // Apply the saved theme
-    function applyTheme(theme) {
-        if (theme === 'dark') {
-            htmlElement.setAttribute('data-theme', 'dark');
-            if (themeIcon) themeIcon.className = 'bi bi-sun';
-        } else {
-            htmlElement.removeAttribute('data-theme');
-            if (themeIcon) themeIcon.className = 'bi bi-moon';
-        }
-    }
-    
-    // Initialize theme
-    applyTheme(savedTheme);
-    
-    // Toggle theme
-    if (themeToggle) {
-        themeToggle.addEventListener('click', function() {
-            const currentTheme = htmlElement.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
-            applyTheme(newTheme);
-            localStorage.setItem('theme', newTheme);
-        });
-    }
-    
-    // Listen for system theme changes
-    if (window.matchMedia) {
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
-            // Only apply system theme if user hasn't set a preference
-            if (!localStorage.getItem('theme')) {
-                applyTheme(e.matches ? 'dark' : 'light');
-            }
-        });
-    }
+    // Force dark theme site-wide (remove user toggle and saved preferences)
+    document.documentElement.setAttribute('data-theme', 'dark');
 
     // Cache management functionality
     function clearPackageCache() {
