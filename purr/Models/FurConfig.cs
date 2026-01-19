@@ -30,4 +30,7 @@ public class FurConfig
 
     [JsonPropertyName("dependencies")]
     public string[] Dependencies { get; set; } = Array.Empty<string>();
+
+    [JsonPropertyName("categories")]
+    public string[] Categories { get; set; } = Array.Empty<string>();
 }

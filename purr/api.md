@@ -102,6 +102,37 @@ Gets packages by tag/keyword.
 ### `GET /packages/authors/{author}`
 Gets packages by author.
 
+### `GET /packages/categories`
+Gets the list of available categories (ordered by popularity).
+
+**Parameters:**
+- `limit` (optional): Number of categories to return (default: 10)
+
+**Response:**
+```json
+["utility", "development", "cli", "tools"]
+```
+
+### `GET /packages/categories/{category}`
+Gets packages that belong to the given category.
+
+**Parameters:**
+- `category` (path): Category name (URL-encoded if it contains spaces or special characters)
+
+**Response:**
+```json
+[
+    {
+        "name": "mypackage",
+        "version": "1.2.3",
+        "description": "A useful tool",
+        "authors": ["alice"],
+        "dependencies": [],
+        "homepage": "https://example.com"
+    }
+]
+```
+
 ## Authentication
 
 Some endpoints require authentication via GitHub OAuth. Include the authorization header:

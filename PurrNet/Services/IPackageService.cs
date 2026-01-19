@@ -35,5 +35,6 @@ namespace Purrnet.Services
         Task<bool> ImportPackagesFromJsonAsync(string jsonFilePath);
         Task<bool> ExportPackagesToJsonAsync(string jsonFilePath);
         Task<int> GetPackageCountAsync();
+        Task<bool> MigrateCategoriesAsync();
     }
 }

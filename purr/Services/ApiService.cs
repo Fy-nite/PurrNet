@@ -154,6 +154,71 @@ public class ApiService : IDisposable
         return null;
     }
 
+    public async Task<string[]?> GetCategoriesAsync()
+    {
+        foreach (var baseUrl in _baseUrls)
+        {
+            var url = $"{baseUrl}/api/v1/packages/categories";
+
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    return JsonSerializer.Deserialize<string[]>(json);
+                }
+                else
+                {
+                    await HandleErrorResponse(response);
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                ConsoleHelper.WriteError($"Network error: {ex.Message}");
+                ConsoleHelper.WriteInfo($"Make sure the FUR API server at {baseUrl} is running");
+            }
+            catch (Exception ex)
+            {
+                ConsoleHelper.WriteError($"Error fetching categories from {baseUrl}: {ex.Message}");
+            }
+        }
+        return null;
+    }
+
+    public async Task<PackageSearchResult[]?> GetPackagesByCategoryAsync(string category, bool includeDetails = true)
+    {
+        foreach (var baseUrl in _baseUrls)
+        {
+            var url = $"{baseUrl}/api/v1/packages/categories/{Uri.EscapeDataString(category)}";
+
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    // API returns an array of package-like objects; map to PackageSearchResult
+                    return JsonSerializer.Deserialize<PackageSearchResult[]>(json);
+                }
+                else
+                {
+                    await HandleErrorResponse(response);
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                ConsoleHelper.WriteError($"Network error: {ex.Message}");
+                ConsoleHelper.WriteInfo($"Make sure the FUR API server at {baseUrl} is running");
+            }
+            catch (Exception ex)
+            {
+                ConsoleHelper.WriteError($"Error fetching packages by category from {baseUrl}: {ex.Message}");
+            }
+        }
+        return null;
+    }
+
     public async Task TrackDownloadAsync(string packageName)
     {
         foreach (var baseUrl in _baseUrls)

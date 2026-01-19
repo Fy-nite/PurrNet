@@ -299,6 +299,49 @@ public class PackageManager
         }
     }
 
+    public async Task ListCategoriesAsync()
+    {
+        ConsoleHelper.WriteStep("Fetching", "categories");
+
+        var categories = await _apiService.GetCategoriesAsync();
+        if (categories == null || categories.Length == 0)
+        {
+            ConsoleHelper.WriteWarning("No categories available");
+            return;
+        }
+
+        ConsoleHelper.WriteHeader("Categories");
+        foreach (var c in categories)
+        {
+            Console.WriteLine($"  • {c}");
+        }
+    }
+
+    public async Task ListPackagesByCategoryAsync(string category)
+    {
+        ConsoleHelper.WriteStep("Fetching", $"packages in category '{category}'");
+
+        var results = await _apiService.GetPackagesByCategoryAsync(category);
+        if (results == null || results.Length == 0)
+        {
+            ConsoleHelper.WriteWarning("No packages found for this category");
+            return;
+        }
+
+        ConsoleHelper.WriteHeader($"Packages in '{category}' ({results.Length})");
+        foreach (var pkg in results)
+        {
+            Console.Write("  • ");
+            ConsoleHelper.WritePackage(pkg.Name, pkg.Version);
+            Console.WriteLine();
+            if (!string.IsNullOrEmpty(pkg.Description))
+            {
+                ConsoleHelper.WriteDim("   ");
+                Console.WriteLine(pkg.Description);
+            }
+        }
+    }
+
     public async Task ListPackagesAsync(string? sort = null)
     {
         ConsoleHelper.WriteStep("Fetching", "package list");

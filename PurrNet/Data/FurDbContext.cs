@@ -8,6 +8,7 @@ namespace Purrnet.Data
     {
         public PurrDbContext(DbContextOptions<PurrDbContext> options) : base(options) { }
         public DbSet<Package> Packages { get; set; }
+        public DbSet<Category> Categories { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<AdminActivityEntity> AdminActivities { get; set; }
 
@@ -68,6 +69,13 @@ namespace Purrnet.Data
                     .UsingEntity<Dictionary<string, object>>(
                         "PackageMaintainer",
                         j => j.HasOne<User>().WithMany().HasForeignKey("UserId"),
+                        j => j.HasOne<Package>().WithMany().HasForeignKey("PackageId"));
+
+                // Many-to-many: Package <-> Category
+                entity.HasMany(e => e.CategoryEntities)
+                    .WithMany(c => c.Packages)
+                    .UsingEntity<Dictionary<string, object>>("PackageCategory",
+                        j => j.HasOne<Category>().WithMany().HasForeignKey("CategoryId"),
                         j => j.HasOne<Package>().WithMany().HasForeignKey("PackageId"));
             });
 

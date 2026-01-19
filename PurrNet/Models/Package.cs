@@ -30,6 +30,9 @@ namespace Purrnet.Models
         
         // Add categories support
         public List<string> Categories { get; set; } = new();
+
+        // Navigation property for relational categories (many-to-many)
+        public List<Category> CategoryEntities { get; set; } = new();
         
         public string Homepage { get; set; } = string.Empty;
         

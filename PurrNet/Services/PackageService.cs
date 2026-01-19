@@ -82,6 +82,34 @@ namespace Purrnet.Services
                     ApprovalStatus = "Pending"
                 };
 
+                // Handle categories: ensure Category entities exist and link them
+                if (PurrConfig.Categories != null && PurrConfig.Categories.Any())
+                {
+                    var categoryNames = PurrConfig.Categories
+                        .Where(c => !string.IsNullOrWhiteSpace(c))
+                        .Select(c => c.Trim())
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    var existing = await _context.Categories
+                        .Where(c => categoryNames.Contains(c.Name))
+                        .ToListAsync();
+
+                    var missing = categoryNames
+                        .Except(existing.Select(e => e.Name), StringComparer.OrdinalIgnoreCase)
+                        .Select(n => new Category { Name = n })
+                        .ToList();
+
+                    if (missing.Any())
+                    {
+                        _context.Categories.AddRange(missing);
+                    }
+
+                    package.CategoryEntities = existing.Concat(missing).ToList();
+                    // Also keep legacy string list for compatibility
+                    package.Categories = categoryNames;
+                }
+
                 _context.Packages.Add(package);
                 await _context.SaveChangesAsync();
 
@@ -125,6 +153,32 @@ namespace Purrnet.Services
                 package.Git = PurrConfig.Git;
                 package.Installer = PurrConfig.Installer ?? string.Empty;
                 package.Dependencies = PurrConfig.Dependencies ?? new List<string>();
+                // Update categories relationally and as legacy list
+                if (PurrConfig.Categories != null)
+                {
+                    var categoryNames = PurrConfig.Categories
+                        .Where(c => !string.IsNullOrWhiteSpace(c))
+                        .Select(c => c.Trim())
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    var existing = await _context.Categories
+                        .Where(c => categoryNames.Contains(c.Name))
+                        .ToListAsync();
+
+                    var missing = categoryNames
+                        .Except(existing.Select(e => e.Name), StringComparer.OrdinalIgnoreCase)
+                        .Select(n => new Category { Name = n })
+                        .ToList();
+
+                    if (missing.Any()) _context.Categories.AddRange(missing);
+
+                    // Reload package's category collection
+                    await _context.Entry(package).Collection(p => p.CategoryEntities).LoadAsync();
+                    package.CategoryEntities.Clear();
+                    package.CategoryEntities.AddRange(existing.Concat(missing));
+                    package.Categories = categoryNames;
+                }
                 package.LastUpdated = DateTime.UtcNow;
                 package.UpdatedBy = updatedBy;
 
@@ -362,7 +416,7 @@ namespace Purrnet.Services
         public async Task<List<Package>> GetPackagesByCategoryAsync(string category)
         {
             return await _context.Packages
-                .Where(p => p.IsActive && p.Categories.Contains(category))
+                .Where(p => p.IsActive && p.CategoryEntities.Any(c => c.Name == category))
                 .OrderByDescending(p => p.Downloads)
                 .ToListAsync();
         }
@@ -393,14 +447,11 @@ namespace Purrnet.Services
 
         public async Task<List<string>> GetPopularCategoriesAsync(int limit = 10)
         {
-            var packages = await _context.Packages.Where(p => p.IsActive).ToListAsync();
-            return packages
-                .SelectMany(p => p.Categories)
-                .GroupBy(c => c)
-                .OrderByDescending(g => g.Count())
+            return await _context.Categories
+                .OrderByDescending(c => c.Packages.Count)
                 .Take(limit)
-                .Select(g => g.Key)
-                .ToList();
+                .Select(c => c.Name)
+                .ToListAsync();
         }
 
         public async Task<bool> ClearAllDataAsync()
@@ -479,6 +530,51 @@ namespace Purrnet.Services
         public async Task<int> GetPackageCountAsync()
         {
             return await _context.Packages.CountAsync(p => p.IsActive);
+        }
+
+        // Migrate legacy string-based categories into relational Category entities
+        public async Task<bool> MigrateCategoriesAsync()
+        {
+            try
+            {
+                var packages = await _context.Packages.ToListAsync();
+                var allCategories = packages
+                    .Where(p => p.Categories != null)
+                    .SelectMany(p => p.Categories)
+                    .Where(c => !string.IsNullOrWhiteSpace(c))
+                    .Select(c => c.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var existing = await _context.Categories.Where(c => allCategories.Contains(c.Name)).ToListAsync();
+                var missing = allCategories.Except(existing.Select(e => e.Name), StringComparer.OrdinalIgnoreCase)
+                    .Select(n => new Category { Name = n })
+                    .ToList();
+
+                if (missing.Any()) _context.Categories.AddRange(missing);
+
+                await _context.SaveChangesAsync();
+
+                var categoryLookup = await _context.Categories.ToListAsync();
+
+                foreach (var pkg in packages)
+                {
+                    if (pkg.Categories == null || !pkg.Categories.Any()) continue;
+                    await _context.Entry(pkg).Collection(p => p.CategoryEntities).LoadAsync();
+                    pkg.CategoryEntities.Clear();
+                    var names = pkg.Categories.Select(c => c.Trim());
+                    var cats = categoryLookup.Where(c => names.Contains(c.Name)).ToList();
+                    pkg.CategoryEntities.AddRange(cats);
+                }
+
+                await _context.SaveChangesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error migrating legacy categories");
+                return false;
+            }
         }
     }
 }

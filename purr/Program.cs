@@ -45,14 +45,23 @@ namespace Fur
             }, queryArg);
 
             // List command
-            var listCommand = new Command("list", "List all packages");
+            var listCommand = new Command("list", "List all packages or filter by category");
             var sortOption = new Option<string>("--sort", "Sort method (mostDownloads, recentlyUpdated, etc.)");
+            var categoryOption = new Option<string>("--category", "Filter packages by category name");
             listCommand.AddOption(sortOption);
-            listCommand.SetHandler(async (string sort) =>
+            listCommand.AddOption(categoryOption);
+            listCommand.SetHandler(async (string sort, string category) =>
             {
                 var packageManager = new PackageManager(settings.RepositoryUrls);
-                await packageManager.ListPackagesAsync(sort);
-            }, sortOption);
+                if (!string.IsNullOrWhiteSpace(category))
+                {
+                    await packageManager.ListPackagesByCategoryAsync(category);
+                }
+                else
+                {
+                    await packageManager.ListPackagesAsync(sort);
+                }
+            }, sortOption, categoryOption);
 
             // Info command
             var infoCommand = new Command("info", "Get package information");
