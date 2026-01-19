@@ -55,6 +55,18 @@ namespace Purrnet.Services
                     return false;
                 }
 
+                // Validate ownerId points to an existing user to avoid FK failures
+                int? validOwnerId = ownerId;
+                if (ownerId.HasValue)
+                {
+                    var owner = await _context.Users.FindAsync(ownerId.Value);
+                    if (owner == null)
+                    {
+                        _logger.LogWarning("OwnerId {OwnerId} not found for package {PackageName}; clearing OwnerId", ownerId, PurrConfig.Name);
+                        validOwnerId = null;
+                    }
+                }
+
                 var package = new Package
                 {
                     Name = PurrConfig.Name,
@@ -77,7 +89,7 @@ namespace Purrnet.Services
                     CreatedAt = DateTime.UtcNow,
                     LastUpdated = DateTime.UtcNow,
                     CreatedBy = createdBy,
-                    OwnerId = ownerId,
+                    OwnerId = validOwnerId,
                     IsActive = true,
                     ApprovalStatus = "Pending"
                 };
@@ -482,6 +494,68 @@ namespace Purrnet.Services
                 }
 
                 var json = await File.ReadAllTextAsync(jsonFilePath);
+                // Try to deserialize rich export format first (includes owner info)
+                List<ExportPackageDto>? exported = null;
+                try
+                {
+                    exported = JsonSerializer.Deserialize<List<ExportPackageDto>>(json);
+                }
+                catch { /* fall back below */ }
+
+                if (exported != null && exported.Any())
+                {
+                    int importedCount = 0;
+                    foreach (var item in exported)
+                    {
+                        int? ownerId = null;
+                        if (item.Owner != null)
+                        {
+                            // Try to find existing user by GitHubId, then Email, then Username
+                            User? user = null;
+                            if (!string.IsNullOrWhiteSpace(item.Owner.GitHubId))
+                            {
+                                user = await _context.Users.FirstOrDefaultAsync(u => u.GitHubId == item.Owner.GitHubId);
+                            }
+                            if (user == null && !string.IsNullOrWhiteSpace(item.Owner.Email))
+                            {
+                                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == item.Owner.Email);
+                            }
+                            if (user == null && !string.IsNullOrWhiteSpace(item.Owner.Username))
+                            {
+                                user = await _context.Users.FirstOrDefaultAsync(u => u.Username == item.Owner.Username);
+                            }
+
+                            if (user == null)
+                            {
+                                // Create a lightweight placeholder user so ownership can be tracked across instances
+                                user = new User
+                                {
+                                    GitHubId = item.Owner.GitHubId ?? string.Empty,
+                                    Username = item.Owner.Username ?? (item.Owner.GitHubId ?? "unknown"),
+                                    Email = item.Owner.Email ?? string.Empty,
+                                    AvatarUrl = string.Empty,
+                                    CreatedAt = DateTime.UtcNow,
+                                    LastLoginAt = DateTime.UtcNow,
+                                    IsAdmin = false
+                                };
+                                _context.Users.Add(user);
+                                await _context.SaveChangesAsync();
+                            }
+
+                            ownerId = user.Id;
+                        }
+
+                        if (await SavePackageAsync(item.PurrConfig, "import", ownerId))
+                        {
+                            importedCount++;
+                        }
+                    }
+
+                    _logger.LogInformation("Imported {ImportedCount} out of {TotalCount} packages from {FilePath}", importedCount, exported.Count, jsonFilePath);
+                    return true;
+                }
+
+                // Fallback to legacy simple PurrConfig array
                 var PurrConfigs = JsonSerializer.Deserialize<List<PurrConfig>>(json);
 
                 if (PurrConfigs == null || !PurrConfigs.Any())
@@ -490,17 +564,16 @@ namespace Purrnet.Services
                     return true;
                 }
 
-                int importedCount = 0;
+                int legacyImported = 0;
                 foreach (var PurrConfig in PurrConfigs)
                 {
                     if (await SavePackageAsync(PurrConfig, "import"))
                     {
-                        importedCount++;
+                        legacyImported++;
                     }
                 }
 
-                _logger.LogInformation("Imported {ImportedCount} out of {TotalCount} packages from {FilePath}", 
-                    importedCount, PurrConfigs.Count, jsonFilePath);
+                _logger.LogInformation("Imported {ImportedCount} out of {TotalCount} packages from {FilePath}", legacyImported, PurrConfigs.Count, jsonFilePath);
                 return true;
             }
             catch (Exception ex)
@@ -514,10 +587,43 @@ namespace Purrnet.Services
         {
             try
             {
-                var packages = _context.Packages.ToList();
-                var json = JsonSerializer.Serialize(packages, new JsonSerializerOptions { WriteIndented = true });
+                var packages = _context.Packages
+                    .Include(p => p.Owner)
+                    .ToList();
+
+                var exportList = packages.Select(p => new ExportPackageDto
+                {
+                    PackageId = p.Id,
+                    PurrConfig = new PurrConfig
+                    {
+                        Name = p.Name,
+                        Version = p.Version,
+                        Authors = p.Authors ?? new List<string>(),
+                        SupportedPlatforms = p.SupportedPlatforms ?? new List<string>(),
+                        Description = p.Description ?? string.Empty,
+                        ReadmeUrl = p.ReadmeUrl ?? string.Empty,
+                        License = p.License ?? string.Empty,
+                        LicenseUrl = p.LicenseUrl ?? string.Empty,
+                        Keywords = p.Keywords ?? new List<string>(),
+                        Categories = p.Categories ?? new List<string>(),
+                        Homepage = p.Homepage ?? string.Empty,
+                        IssueTracker = p.IssueTracker ?? string.Empty,
+                        Git = p.Git ?? string.Empty,
+                        Installer = p.Installer ?? string.Empty,
+                        Dependencies = p.Dependencies ?? new List<string>()
+                    },
+                    Owner = p.Owner == null ? null : new OwnerInfo
+                    {
+                        Id = p.Owner.Id,
+                        GitHubId = p.Owner.GitHubId,
+                        Username = p.Owner.Username,
+                        Email = p.Owner.Email
+                    }
+                }).ToList();
+
+                var json = JsonSerializer.Serialize(exportList, new JsonSerializerOptions { WriteIndented = true });
                 File.WriteAllText(jsonFilePath, json);
-                _logger.LogInformation("Exported {Count} packages to {FilePath}", packages.Count, jsonFilePath);
+                _logger.LogInformation("Exported {Count} packages to {FilePath}", exportList.Count, jsonFilePath);
                 return Task.FromResult(true);
             }
             catch (Exception ex)

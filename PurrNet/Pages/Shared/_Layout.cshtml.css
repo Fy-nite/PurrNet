@@ -40,9 +40,11 @@ button.accept-policy {
 }
 
 .footer {
-  position: absolute;
-  bottom: 0;
+  /* Let the footer participate in normal document flow so it appears
+     after page content instead of overlapping it. When a sticky footer
+     is desired, use a page-wrapper flex layout instead. */
+  position: relative;
   width: 100%;
-  white-space: nowrap;
-  line-height: 60px;
+  padding: 0.75rem 0;
+  color: #6c757d;
 }

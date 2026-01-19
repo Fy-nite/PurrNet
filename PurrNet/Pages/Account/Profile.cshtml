@@ -95,6 +95,23 @@
                 </div>
             </div>
         }
+        else
+        {
+            @* Diagnostic: show auth state and claims when we couldn't find the user in the DB *@
+            @if (User?.Identity?.IsAuthenticated == true)
+            {
+                <div class="alert alert-warning">
+                    <h5 class="mb-2">Authenticated but no profile found</h5>
+                    <p class="small">The authenticated identity exists but no matching user record was found in the database. Below are the current authentication claims which can help diagnose the issue.</p>
+                    <ul class="small mb-0">
+                        @foreach (var claim in User.Claims)
+                        {
+                            <li><strong>@claim.Type</strong>: @claim.Value</li>
+                        }
+                    </ul>
+                </div>
+            }
+        }
     </div>
     
     <div class="col-md-4">

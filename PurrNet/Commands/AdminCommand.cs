@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Purrnet.Data;
 using Purrnet.Models;
+using Purrnet.Services;
 
 namespace Purrnet.Commands
 {
@@ -29,8 +31,46 @@ namespace Purrnet.Commands
                 "revoke" when args.Length >= 3 => await RevokeAdminAsync(context, args[2]),
                 "list" => await ListAdminsAsync(context),
                 "list-users" => await ListAllUsersAsync(context),
+                "export-packages" when args.Length >= 3 => await ExportPackagesAsync(context, args[2]),
+                "import-packages" when args.Length >= 3 => await ImportPackagesAsync(context, args[2]),
                 _ => ShowHelp()
             };
+        }
+
+        private static async Task<int> ExportPackagesAsync(PurrDbContext context, string filePath)
+        {
+            try
+            {
+                using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+                var logger = loggerFactory.CreateLogger<PackageService>();
+                var svc = new PackageService(context, logger);
+                var ok = await svc.ExportPackagesToJsonAsync(filePath);
+                Console.WriteLine(ok ? $"✅ Exported packages to {filePath}" : $"❌ Failed to export packages to {filePath}");
+                return ok ? 0 : 1;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error exporting packages: {ex.Message}");
+                return 1;
+            }
+        }
+
+        private static async Task<int> ImportPackagesAsync(PurrDbContext context, string filePath)
+        {
+            try
+            {
+                using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+                var logger = loggerFactory.CreateLogger<PackageService>();
+                var svc = new PackageService(context, logger);
+                var ok = await svc.ImportPackagesFromJsonAsync(filePath);
+                Console.WriteLine(ok ? $"✅ Imported packages from {filePath}" : $"❌ Failed to import packages from {filePath}");
+                return ok ? 0 : 1;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error importing packages: {ex.Message}");
+                return 1;
+            }
         }
 
         private static async Task<int> PromoteUserAsync(PurrDbContext context, string username)

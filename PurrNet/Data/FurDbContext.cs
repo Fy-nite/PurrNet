@@ -110,6 +110,16 @@ namespace Purrnet.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // Seed default categories so they are tracked by migrations
+            modelBuilder.Entity<Category>().HasData(
+                new Category { Id = 1, Name = "Utility" },
+                new Category { Id = 2, Name = "Development" },
+                new Category { Id = 3, Name = "CLI" },
+                new Category { Id = 4, Name = "Tools" },
+                new Category { Id = 5, Name = "UI" },
+                new Category { Id = 6, Name = "Library" }
+            );
+
             base.OnModelCreating(modelBuilder);
         }
     }

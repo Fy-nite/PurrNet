@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Purrnet.Data;
 
@@ -9,10 +10,12 @@ using Purrnet.Data;
 
 namespace Purrnet.Migrations
 {
-
-    partial class PurrDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(PurrDbContext))]
+    [Migration("20260119033838_SeedDefaultCategories")]
+    partial class SeedDefaultCategories
     {
-        protected  void sBuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.0");
@@ -139,8 +142,24 @@ namespace Purrnet.Migrations
                         new
                         {
                             Id = 6,
-                            Name = "Library"
-                        });
+                            Name = "GeneralLibrary"
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Name = "MasmLibrary"
+                        },
+                        new
+                        {
+                            Id = 8,
+                            Name = "ObjectIRLibrary"
+                        },
+                        new
+                        {
+                            Id = 9,
+                            Name = "Game"
+                        }
+                        );
                 });
 
             modelBuilder.Entity("Purrnet.Models.Package", b =>

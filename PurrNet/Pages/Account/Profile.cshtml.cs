@@ -26,19 +26,17 @@ namespace Purrnet.Pages.Account
 
         public async Task<IActionResult> OnGetAsync()
         {
-            var userIdClaim = User.FindFirst("UserId");
-            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
-            {
-                return RedirectToPage("/Account/Login");
-            }
-
             try
             {
+                // Prefer the GitHub NameIdentifier claim which is set during OAuth
                 var gitHubId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-                if (!string.IsNullOrEmpty(gitHubId))
+                if (string.IsNullOrEmpty(gitHubId))
                 {
-                    CurrentUser = await _userService.GetUserByGitHubIdAsync(gitHubId);
+                    // No GitHub identifier found — require authentication
+                    return RedirectToPage("/Account/Login");
                 }
+
+                CurrentUser = await _userService.GetUserByGitHubIdAsync(gitHubId);
 
                 if (CurrentUser != null)
                 {
@@ -50,7 +48,8 @@ namespace Purrnet.Pages.Account
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading user profile for user ID {UserId}", userId);
+                _logger.LogError(ex, "Error loading user profile for GitHub ID {GitHubId}",
+                    User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value);
                 Message = "An error occurred while loading your profile.";
                 IsSuccess = false;
                 return Page();
