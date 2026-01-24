@@ -188,12 +188,12 @@ var app = builder.Build();
 //     context.Database.EnsureCreated();
 // }
 
-// Instead, apply migrations automatically
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<PurrDbContext>();
-    context.Database.Migrate();
-}
+// // Instead, apply migrations automatically
+// using (var scope = app.Services.CreateScope())
+// {
+//     var context = scope.ServiceProvider.GetRequiredService<PurrDbContext>();
+//     context.Database.Migrate();
+// }
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
