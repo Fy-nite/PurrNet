@@ -7,7 +7,9 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using DotNetEnv;
-using Purrnet.Commands; // Add this for AdminCommand
+using Microsoft.AspNetCore.HttpOverrides;
+using Purrnet.Commands;
+using Microsoft.Extensions.Primitives; // Add this for AdminCommand
 
 // Handle admin CLI commands before starting the web server
 if (args.Length > 0 && args[0] == "--admin")
@@ -20,6 +22,8 @@ if (args.Length > 0 && args[0] == "--admin")
 Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
+var basePath = Environment.GetEnvironmentVariable("BASE_PATH") ?? builder.Configuration["BasePath"] ?? "/purr";
+var trustForwardHeaders = (Environment.GetEnvironmentVariable("TRUST_FORWARD_HEADERS") ?? builder.Configuration["TrustForwardHeaders"])?.ToLower() == "true";
 
 // Check for testing/debug mode from command line arguments
 var isTestingMode = args.Contains("--test") || args.Contains("--debug");
@@ -27,6 +31,8 @@ Console.WriteLine($"Testing mode: {isTestingMode}");
 Console.WriteLine($"Command line args: {string.Join(", ", args)}");
 
 builder.Services.AddSingleton(new TestingModeService(isTestingMode));
+
+
 
 // Add services to the container.
 builder.Services.AddRazorPages();
@@ -80,6 +86,7 @@ builder.Services.AddAuthentication(options =>
     options.ExpireTimeSpan = TimeSpan.FromHours(24);
     options.SlidingExpiration = true;
     options.Cookie.Name = ".AspNetCore.PurrNet.Auth";
+    options.Cookie.Path = basePath;
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
     options.Cookie.SameSite = SameSiteMode.Lax;
@@ -100,11 +107,12 @@ builder.Services.AddAuthentication(options =>
             ".AspNetCore.Session."
         };
         
+        var deletePath = context.HttpContext.Request.PathBase.HasValue ? context.HttpContext.Request.PathBase.ToString() : "/";
         foreach (var cookieName in cookiesToClear)
         {
             context.Response.Cookies.Delete(cookieName, new CookieOptions
             {
-                Path = "/",
+                Path = deletePath,
                 HttpOnly = true,
                 Secure = context.HttpContext.Request.IsHttps,
                 SameSite = SameSiteMode.Lax
@@ -122,6 +130,7 @@ builder.Services.AddAuthentication(options =>
     
     // Fix correlation issues with custom domain
     options.CorrelationCookie.Name = ".AspNetCore.PurrNet.Correlation";
+    options.CorrelationCookie.Path = basePath;
     options.CorrelationCookie.SameSite = SameSiteMode.Lax;
     options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
     options.CorrelationCookie.HttpOnly = true;
@@ -189,7 +198,52 @@ builder.Services.AddAuthentication(options =>
 });
 
 var app = builder.Build();
+app.UsePathBase(basePath); // Set the base path for the application
+Console.WriteLine($"Application base path set to {basePath}");
+// If configured, trust common proxy forwarded headers and allow the proxy to set a request PathBase
+if (trustForwardHeaders)
+{
+    var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+    var fwdLogger = loggerFactory.CreateLogger("ForwardedHeaders");
+    fwdLogger.LogInformation("TRUST_FORWARD_HEADERS=true — enabling forwarding of headers and X-Forwarded-Prefix support (trusted proxy)");
 
+    var forwardOptions = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+    };
+    // Allow forwarded headers from any proxy (operator must ensure this is safe in their environment)
+    forwardOptions.KnownNetworks.Clear();
+    forwardOptions.KnownProxies.Clear();
+
+    app.UseForwardedHeaders(forwardOptions);
+
+    app.Use(async (context, next) =>
+    {
+        // Prefer X-Forwarded-Prefix (commonly used), then X-Forwarded-Path, then X-Original-URI
+        string? prefix = null;
+        if (context.Request.Headers.TryGetValue("X-Forwarded-Prefix", out var v) && !StringValues.IsNullOrEmpty(v)) prefix = v.ToString();
+        else if (context.Request.Headers.TryGetValue("X-Forwarded-Path", out var v2) && !StringValues.IsNullOrEmpty(v2)) prefix = v2.ToString();
+        else if (context.Request.Headers.TryGetValue("X-Original-URI", out var v3) && !StringValues.IsNullOrEmpty(v3)) prefix = v3.ToString();
+
+        if (!string.IsNullOrEmpty(prefix))
+        {
+            // Trim query and ensure leading slash
+            var cleaned = prefix.Split('?')[0];
+            if (!cleaned.StartsWith('/')) cleaned = "/" + cleaned;
+            try
+            {
+                context.Request.PathBase = new PathString(cleaned);
+                fwdLogger.LogDebug("Applied forwarded prefix '{Prefix}' to Request.PathBase", cleaned);
+            }
+            catch (Exception ex)
+            {
+                fwdLogger.LogWarning(ex, "Invalid forwarded prefix '{Prefix}', ignoring", prefix);
+            }
+        }
+
+        await next();
+    });
+}
 // Apply migrations automatically on startup
 using (var scope = app.Services.CreateScope())
 {
@@ -226,8 +280,9 @@ if (!app.Environment.IsDevelopment())
 // app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-app.UseRouting();
 
+
+app.UseRouting();
 // Enable CORS for API
 app.UseCors("ApiPolicy");
 
