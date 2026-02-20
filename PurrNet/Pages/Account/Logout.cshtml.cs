@@ -53,7 +53,7 @@ namespace Purrnet.Pages.Account
                 {
                     Response.Cookies.Delete(cookieName, new CookieOptions
                     {
-                        Path = "/",
+                        Path = Request.PathBase.HasValue ? Request.PathBase.ToString() : "/",
                         HttpOnly = true,
                         Secure = Request.IsHttps,
                         SameSite = SameSiteMode.Lax
@@ -61,19 +61,21 @@ namespace Purrnet.Pages.Account
                 }
                 
                 // Set cache control headers
-                Response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate");
-                Response.Headers.Add("Pragma", "no-cache");
-                Response.Headers.Add("Expires", "0");
+                Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+                Response.Headers.Append("Pragma", "no-cache");
+                Response.Headers.Append("Expires", "0");
                 
                 _logger.LogInformation("Logout completed for user: {UserName}", userName);
                 
-                // Simple redirect to home page
-                return LocalRedirect("~/");
+                // Redirect to configured PathBase-aware home page
+                var home = Request.PathBase.HasValue ? Request.PathBase.ToString() + "/" : "/";
+                return LocalRedirect(home);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during logout");
-                return LocalRedirect("~/");
+                var home = Request.PathBase.HasValue ? Request.PathBase.ToString() + "/" : "/";
+                return LocalRedirect(home);
             }
         }
     }

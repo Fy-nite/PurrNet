@@ -200,19 +200,19 @@
                 <div class="d-flex justify-content-center gap-3">
                     @if (User.Identity?.IsAuthenticated == true)
                     {
-                        <a href="/Packages/Submit" class="btn btn-primary">
+                        <a asp-page="/Packages/Submit" class="btn btn-primary">
                             <i class="bi bi-upload"></i> Submit Your First Package
                         </a>
-                        <a href="/Packages/Browse" class="btn btn-outline-secondary">
+                        <a asp-page="/Packages/Browse" class="btn btn-outline-secondary">
                             <i class="bi bi-search"></i> Browse Packages
                         </a>
                     }
                     else
                     {
-                        <a href="/Account/Login" class="btn btn-primary">
+                        <a asp-page="/Account/Login" class="btn btn-primary">
                             <i class="bi bi-github"></i> Sign Up with GitHub
                         </a>
-                        <a href="/Packages/Browse" class="btn btn-outline-secondary">
+                        <a asp-page="/Packages/Browse" class="btn btn-outline-secondary">
                             <i class="bi bi-search"></i> Browse Packages
                         </a>
                     }

@@ -31,8 +31,8 @@
             </div>
         </div>
         <div class="d-flex justify-content-center gap-3 mt-4">
-            <a href="/Packages/Browse" class="btn btn-outline-secondary px-4 py-2 shadow-sm">Browse Packages</a>
-            <a href="/Packages/Submit" class="btn btn-primary px-4 py-2 shadow-sm">Submit Package</a>
+            <a asp-page="/Packages/Browse" class="btn btn-outline-secondary px-4 py-2 shadow-sm">Browse Packages</a>
+            <a asp-page="/Packages/Submit" class="btn btn-primary px-4 py-2 shadow-sm">Submit Package</a>
         </div>
     </div>
 </div>
@@ -52,7 +52,7 @@
                             {
                                 <li class="list-group-item bg-transparent d-flex align-items-center justify-content-between rounded-4 mb-2 px-3 py-2 shadow-sm">
                                     <div>
-                                        <a href="/Packages/Details/@pkg.Name" class="fw-semibold text-primary">@pkg.Name</a>
+                                        <a asp-page="/Packages/Details" asp-route-name="@pkg.Name" class="fw-semibold text-primary">@pkg.Name</a>
                                         <span class="badge bg-secondary ms-2">@pkg.Version</span>
                                         <div class="small text-muted">@pkg.Description</div>
                                     </div>

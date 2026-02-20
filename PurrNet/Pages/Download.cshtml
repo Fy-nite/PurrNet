@@ -10,14 +10,14 @@
     document.addEventListener("DOMContentLoaded", function() {
         // Add download links dynamically
         document.querySelectorAll('[name="windows-download"]').forEach(function(el) {
-            el.href = '/downloads/purr-windows-latest.exe';
-        });
-        document.querySelectorAll('[name="macOS-download"]').forEach(function(el) {
-            el.href = '/downloads/purr-macos-latest.pkg';
-        });
-        document.querySelectorAll('[name="linux-download"]').forEach(function(el) {
-            el.href = '/downloads/purr-linux-latest.tar.gz';
-        });
+                el.href = (window.Purr.pathBase || '') + '/downloads/purr-windows-latest.exe';
+            });
+            document.querySelectorAll('[name="macOS-download"]').forEach(function(el) {
+                el.href = (window.Purr.pathBase || '') + '/downloads/purr-macos-latest.pkg';
+            });
+            document.querySelectorAll('[name="linux-download"]').forEach(function(el) {
+                el.href = (window.Purr.pathBase || '') + '/downloads/purr-linux-latest.tar.gz';
+            });
     });
 </script>
 <div class="hero-section text-center py-5 mb-5 rounded-4 position-relative overflow-hidden">
@@ -51,7 +51,7 @@
             <p>If downloading a installer doesnt work for you, you can also install Purr using the command line:</p>
             <p>Open a PowerShell terminal (version 5.1 or later) and from the PS C:\> prompt, run:</p>
             <pre><code>Invoke-RestMethod -Uri https://purr.finite.ovh/install.ps1 | Invoke-Expression </code></pre>
-            <p class="mb-0">Or see the <a href="/Documentation/HowToInstall" class="text-primary">documentation</a> for advanced installation options.</p>
+            <p class="mb-0">Or see the <a asp-page="/Documentation/HowToInstall" class="text-primary">documentation</a> for advanced installation options.</p>
         </div>
     </div>
 

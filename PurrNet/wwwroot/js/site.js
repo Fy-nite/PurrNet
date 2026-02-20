@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (isTestingMode) {
         console.log('🧪 PurrNet is running in testing mode');
     }
-    
+
     // Check for logout completion and force cleanup
     const urlParams = new URLSearchParams(window.location.search);
     const logoutStatus = urlParams.get('logout');
@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Cache management functionality
     function clearPackageCache() {
         if (confirm('Are you sure you want to clear the package cache?')) {
-            fetch('/api/v1/packages/cache', { 
+            fetch('/purr/api/v1/packages/cache', { 
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'

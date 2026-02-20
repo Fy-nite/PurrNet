@@ -31,7 +31,7 @@
     
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand" href="/">
+            <a class="navbar-brand" href="@Url.Content("~/")">
                 <i class="bi bi-box-seam"></i> PurrNet
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -40,10 +40,10 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/">Home</a>
+                        <a class="nav-link" href="@Url.Content("~/")">Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/Packages">Packages</a>
+                        <a class="nav-link" href="@Url.Content("~/Packages")">Packages</a>
                     </li>
                 </ul>
                 <ul class="navbar-nav">
@@ -52,7 +52,7 @@
                         @if (User.HasClaim("IsAdmin", "True"))
                         {
                             <li class="nav-item">
-                                <a class="nav-link" href="/Admin">
+                                <a class="nav-link" href="@Url.Content("~/Admin")">
                                     <i class="bi bi-gear"></i> Admin
                                 </a>
                             </li>
@@ -62,14 +62,14 @@
                                 @User.Identity.Name
                             </a>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="/Account/Logout">Logout</a></li>
+                                <li><a class="dropdown-item" href="@Url.Content("~/Account/Logout")">Logout</a></li>
                             </ul>
                         </li>
                     }
                     else
                     {
                         <li class="nav-item">
-                            <a class="nav-link" href="/Account/Login">Login</a>
+                            <a class="nav-link" href="@Url.Content("~/Account/Login")">Login</a>
                         </li>
                     }
                 </ul>
@@ -88,7 +88,7 @@
                     <p>&copy; 2024-2026 Finite & PurrNet - Package Registry</p>
                 </div>
                 <div class="col-md-6 text-end">
-                    <a href="/api/v1/packages" class="text-decoration-none">API</a>
+                    <a href="@Url.Content("~/api/v1/packages")" class="text-decoration-none">API</a>
                 </div>
             </div>
         </div>

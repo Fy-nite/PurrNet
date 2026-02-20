@@ -88,7 +88,7 @@
                                     <td>@package.Downloads.ToString("N0")</td>
                                     <td>
                                         <div class="btn-group btn-group-sm">
-                                            <a href="/Packages/Details/@package.Name" class="btn btn-outline-info" title="View">
+                                            <a asp-page="/Packages/Details" asp-route-name="@package.Name" class="btn btn-outline-info" title="View">
                                                 <i class="bi bi-eye"></i>
                                             </a>
                                             <button onclick="togglePackageStatus(@package.Id)" class="btn btn-outline-warning" title="@(package.IsActive ? "Disable" : "Enable")">
@@ -130,7 +130,7 @@ document.querySelectorAll('input[name="statusFilter"]').forEach(input => {
 // ...existing functions...
 function togglePackageStatus(packageId) {
     if (confirm('Are you sure you want to toggle the status of this package?')) {
-        fetch(`/api/v1/admin/packages/${packageId}/toggle`, { 
+        fetch(`${window.Purr.pathBase}/api/v1/admin/packages/${packageId}/toggle`, { 
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         })
@@ -144,7 +144,7 @@ function togglePackageStatus(packageId) {
 
 function deletePackage(packageId) {
     if (confirm('Are you sure you want to delete this package? This action cannot be undone.')) {
-        fetch(`/api/v1/admin/packages/${packageId}`, { 
+        fetch(`${window.Purr.pathBase}/api/v1/admin/packages/${packageId}`, { 
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
         })

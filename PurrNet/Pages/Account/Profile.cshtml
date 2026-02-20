@@ -48,7 +48,7 @@
                                 <div class="list-group-item">
                                     <div class="d-flex w-100 justify-content-between">
                                         <h5 class="mb-1">
-                                            <a href="/Packages/Details/@package.Name">@package.Name</a>
+                                            <a asp-page="/Packages/Details" asp-route-name="@package.Name">@package.Name</a>
                                         </h5>
                                         <small>v @package.Version</small>
                                     </div>
@@ -64,7 +64,7 @@
                     else
                     {
                         <p class="text-muted">You haven't submitted any packages yet.</p>
-                        <a href="/Packages/Submit" class="btn btn-primary">Submit Your First Package</a>
+                        <a asp-page="/Packages/Submit" class="btn btn-primary">Submit Your First Package</a>
                     }
                 </div>
 
@@ -78,7 +78,7 @@
                                 <div class="list-group-item">
                                     <div class="d-flex w-100 justify-content-between">
                                         <h5 class="mb-1">
-                                            <a href="/Packages/Details/@package.Name">@package.Name</a>
+                                            <a asp-page="/Packages/Details" asp-route-name="@package.Name">@package.Name</a>
                                         </h5>
                                         <small>v @package.Version</small>
                                     </div>
@@ -120,10 +120,10 @@
                 <h5>Quick Actions</h5>
             </div>
             <div class="card-body">
-                <a href="/Packages/Submit" class="btn btn-primary btn-block mb-2">
+                <a asp-page="/Packages/Submit" class="btn btn-primary btn-block mb-2">
                     <i class="bi bi-plus-circle"></i> Submit New Package
                 </a>
-                <a href="/Packages/Browse" class="btn btn-outline-secondary btn-block">
+                <a asp-page="/Packages/Browse" class="btn btn-outline-secondary btn-block">
                     <i class="bi bi-search"></i> Browse Packages
                 </a>
             </div>

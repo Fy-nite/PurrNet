@@ -100,9 +100,9 @@ a,h1,h2,p,li,span
                     </h4>
                     <p class="text-body">If you have more questions or need assistance, feel free to reach out:</p>
                     <ul class="text-body">
-                        <li>Check our <a href="/Documentation" class="text-info">Documentation</a> for detailed guides and tutorials.</li>
+                        <li>Check our <a asp-page="/Documentation/Index" class="text-info">Documentation</a> for detailed guides and tutorials.</li>
                         <li>Join our community on <a href="https://discord.gg/your-discord-link" class="text-info">Discord</a> for real-time support and discussions.</li>
-                        <li>Visit our <a href="/Contact" class="text-info">Contact page</a> to get in touch with the Purr team.</li>
+                        <li>Visit our <a href="@(Request.PathBase.HasValue ? Request.PathBase.ToString() + "/Contact" : "/Contact")" class="text-info">Contact page</a> to get in touch with the Purr team.</li>
                     </ul>
                 </div>
             </div>

@@ -54,6 +54,7 @@ namespace Purrnet.Controllers.Api
         [HttpGet("info")]
         public ActionResult GetApiInfo()
         {
+            var basePath = Request.PathBase.HasValue ? Request.PathBase.ToString() : string.Empty;
             var info = new
             {
                 name = "PurrNet Package Repository API",
@@ -61,14 +62,14 @@ namespace Purrnet.Controllers.Api
                 description = "API for Purr package manager",
                 endpoints = new
                 {
-                    packages = "/api/v1/packages",
-                    health = "/api/v1/health",
-                    statistics = "/api/v1/packages/statistics",
-                    tags = "/api/v1/packages/tags",
-                    authors = "/api/v1/packages/authors"
+                    packages = basePath + "/api/v1/packages",
+                    health = basePath + "/api/v1/health",
+                    statistics = basePath + "/api/v1/packages/statistics",
+                    tags = basePath + "/api/v1/packages/tags",
+                    authors = basePath + "/api/v1/packages/authors"
                 },
                 testingMode = _testingModeService.IsTestingMode,
-                documentation = "See /api.md for detailed API documentation"
+                documentation = "See " + (string.IsNullOrEmpty(basePath) ? "/api.md" : basePath + "/api.md") + " for detailed API documentation"
             };
 
             return Ok(info);
