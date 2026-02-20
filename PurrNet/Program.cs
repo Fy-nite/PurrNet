@@ -161,39 +161,59 @@ builder.Services.AddAuthentication(options =>
             var email = json.RootElement.TryGetProperty("email", out var emailProp) ? emailProp.GetString() ?? "" : "";
             var avatarUrl = json.RootElement.GetProperty("avatar_url").GetString() ?? "";
             
-            var user = await userService.GetUserByGitHubIdAsync(gitHubId);
-            if (user == null)
+            try
             {
-                user = await userService.CreateUserAsync(gitHubId, username, email, avatarUrl);
+                var user = await userService.GetUserByGitHubIdAsync(gitHubId);
+                if (user == null)
+                {
+                    user = await userService.CreateUserAsync(gitHubId, username, email, avatarUrl);
+                }
+                else
+                {
+                    user = await userService.UpdateUserAsync(user);
+                }
+
+                // Add custom claims
+                var identity = (ClaimsIdentity)context.Principal!.Identity!;
+                identity.AddClaim(new Claim("UserId", user.Id.ToString()));
+                identity.AddClaim(new Claim("IsAdmin", user.IsAdmin.ToString()));
             }
-            else
+            catch (Exception ex)
             {
-                user = await userService.UpdateUserAsync(user);
+                var oauthLogger = context.HttpContext.RequestServices
+                    .GetRequiredService<ILoggerFactory>().CreateLogger("OAuth");
+                oauthLogger.LogError(ex, "Failed to persist user {Username} during GitHub OAuth login; user claims will be omitted", username);
             }
-            
-            // Add custom claims
-            var identity = (ClaimsIdentity)context.Principal!.Identity!;
-            identity.AddClaim(new Claim("UserId", user.Id.ToString()));
-            identity.AddClaim(new Claim("IsAdmin", user.IsAdmin.ToString()));
         }
     };
 });
 
 var app = builder.Build();
 
-// Ensure database is created - Comment out this section since we're using migrations now
-// using (var scope = app.Services.CreateScope())
-// {
-//     var context = scope.ServiceProvider.GetRequiredService<PurrDbContext>();
-//     context.Database.EnsureCreated();
-// }
-
-// // Instead, apply migrations automatically
-// using (var scope = app.Services.CreateScope())
-// {
-//     var context = scope.ServiceProvider.GetRequiredService<PurrDbContext>();
-//     context.Database.Migrate();
-// }
+// Apply migrations automatically on startup
+using (var scope = app.Services.CreateScope())
+{
+    var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+    var context = scope.ServiceProvider.GetRequiredService<PurrDbContext>();
+    try
+    {
+        context.Database.Migrate();
+        startupLogger.LogInformation("Database migrations applied successfully");
+    }
+    catch (Exception ex)
+    {
+        startupLogger.LogError(ex, "Migration failed; attempting EnsureCreated as fallback");
+        try
+        {
+            context.Database.EnsureCreated();
+            startupLogger.LogInformation("Database schema created via EnsureCreated fallback");
+        }
+        catch (Exception innerEx)
+        {
+            startupLogger.LogCritical(innerEx, "Database initialization failed entirely — the app may not function correctly");
+        }
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

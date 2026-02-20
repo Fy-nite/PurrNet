@@ -18,27 +18,51 @@ namespace Purrnet.Services
 
         public async Task<List<Package>> GetAllPackagesAsync()
         {
-            return await _context.Packages
-                .Where(p => p.IsActive)
-                .OrderBy(p => p.Name)
-                .ToListAsync();
+            try
+            {
+                return await _context.Packages
+                    .Where(p => p.IsActive)
+                    .OrderBy(p => p.Name)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving all packages");
+                return new List<Package>();
+            }
         }
 
         public async Task<Package?> GetPackageAsync(string packageName, string? version = null)
         {
-            var query = _context.Packages.Where(p => p.Name == packageName && p.IsActive);
-            
-            if (!string.IsNullOrEmpty(version))
+            try
             {
-                query = query.Where(p => p.Version == version);
-            }
+                var query = _context.Packages.Where(p => p.Name == packageName && p.IsActive);
 
-            return await query.FirstOrDefaultAsync();
+                if (!string.IsNullOrEmpty(version))
+                {
+                    query = query.Where(p => p.Version == version);
+                }
+
+                return await query.FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving package {PackageName}", packageName);
+                return null;
+            }
         }
 
         public async Task<Package?> GetPackageByIdAsync(int id)
         {
-            return await _context.Packages.FindAsync(id);
+            try
+            {
+                return await _context.Packages.FindAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving package by ID {PackageId}", id);
+                return null;
+            }
         }
 
         public async Task<bool> SavePackageAsync(PurrConfig PurrConfig, string createdBy, int? ownerId = null)
@@ -248,54 +272,62 @@ namespace Purrnet.Services
 
         public async Task<SearchResult> SearchPackagesAsync(string? query = null, string? sort = null, int page = 1, int pageSize = 20)
         {
-            var queryable = _context.Packages.Where(p => p.IsActive);
-
-            List<Package> filteredPackages;
-
-            // Apply search filter (client-side for case-insensitive search)
-            if (!string.IsNullOrEmpty(query))
+            try
             {
-                var searchTerm = query;
-                filteredPackages = await queryable.ToListAsync();
-                filteredPackages = filteredPackages.Where(p =>
-                    (!string.IsNullOrEmpty(p.Name) && p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
-                    (!string.IsNullOrEmpty(p.Description) && p.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
-                    (p.Authors != null && p.Authors.Any(a => !string.IsNullOrEmpty(a) && a.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))) ||
-                    (p.Keywords != null && p.Keywords.Any(k => !string.IsNullOrEmpty(k) && k.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))) ||
-                    (p.Categories != null && p.Categories.Any(c => !string.IsNullOrEmpty(c) && c.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
-                ).ToList();
+                var queryable = _context.Packages.Where(p => p.IsActive);
+
+                List<Package> filteredPackages;
+
+                // Apply search filter (client-side for case-insensitive search)
+                if (!string.IsNullOrEmpty(query))
+                {
+                    var searchTerm = query;
+                    filteredPackages = await queryable.ToListAsync();
+                    filteredPackages = filteredPackages.Where(p =>
+                        (!string.IsNullOrEmpty(p.Name) && p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                        (!string.IsNullOrEmpty(p.Description) && p.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
+                        (p.Authors != null && p.Authors.Any(a => !string.IsNullOrEmpty(a) && a.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))) ||
+                        (p.Keywords != null && p.Keywords.Any(k => !string.IsNullOrEmpty(k) && k.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))) ||
+                        (p.Categories != null && p.Categories.Any(c => !string.IsNullOrEmpty(c) && c.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
+                    ).ToList();
+                }
+                else
+                {
+                    filteredPackages = await queryable.ToListAsync();
+                }
+
+                // Apply sorting (client-side)
+                IEnumerable<Package> sortedPackages = sort?.ToLower() switch
+                {
+                    "mostdownloads" => filteredPackages.OrderByDescending(p => p.Downloads),
+                    "leastdownloads" => filteredPackages.OrderBy(p => p.Downloads),
+                    "recentlyupdated" => filteredPackages.OrderByDescending(p => p.LastUpdated),
+                    "recentlyuploaded" => filteredPackages.OrderByDescending(p => p.CreatedAt),
+                    "oldestupdated" => filteredPackages.OrderBy(p => p.LastUpdated),
+                    "oldestuploaded" => filteredPackages.OrderBy(p => p.CreatedAt),
+                    "mostviewed" => filteredPackages.OrderByDescending(p => p.ViewCount),
+                    "toprated" => filteredPackages.OrderByDescending(p => p.Rating),
+                    _ => filteredPackages.OrderBy(p => p.Name)
+                };
+
+                var totalCount = sortedPackages.Count();
+                var packages = sortedPackages
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToList();
+
+                return new SearchResult
+                {
+                    Packages = packages,
+                    TotalCount = totalCount,
+                    Query = query ?? string.Empty
+                };
             }
-            else
+            catch (Exception ex)
             {
-                filteredPackages = await queryable.ToListAsync();
+                _logger.LogError(ex, "Error searching packages with query '{Query}'", query);
+                return new SearchResult { Packages = new List<Package>(), TotalCount = 0, Query = query ?? string.Empty };
             }
-
-            // Apply sorting (client-side)
-            IEnumerable<Package> sortedPackages = sort?.ToLower() switch
-            {
-                "mostdownloads" => filteredPackages.OrderByDescending(p => p.Downloads),
-                "leastdownloads" => filteredPackages.OrderBy(p => p.Downloads),
-                "recentlyupdated" => filteredPackages.OrderByDescending(p => p.LastUpdated),
-                "recentlyuploaded" => filteredPackages.OrderByDescending(p => p.CreatedAt),
-                "oldestupdated" => filteredPackages.OrderBy(p => p.LastUpdated),
-                "oldestuploaded" => filteredPackages.OrderBy(p => p.CreatedAt),
-                "mostviewed" => filteredPackages.OrderByDescending(p => p.ViewCount),
-                "toprated" => filteredPackages.OrderByDescending(p => p.Rating),
-                _ => filteredPackages.OrderBy(p => p.Name)
-            };
-
-            var totalCount = sortedPackages.Count();
-            var packages = sortedPackages
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
-
-            return new SearchResult
-            {
-                Packages = packages,
-                TotalCount = totalCount,
-                Query = query ?? string.Empty
-            };
         }
 
         public async Task<PackageListResponse> GetPackageListAsync(string? sort = null, string? search = null, bool includeDetails = false)
@@ -330,26 +362,34 @@ namespace Purrnet.Services
 
         public async Task<PackageStatistics> GetStatisticsAsync()
         {
-            var packages = await _context.Packages.ToListAsync();
-            var activePackages = packages.Where(p => p.IsActive).ToList();
-
-            return new PackageStatistics
+            try
             {
-                TotalPackages = packages.Count,
-                ActivePackages = activePackages.Count,
-                TotalDownloads = activePackages.Sum(p => p.Downloads),
-                TotalViews = activePackages.Sum(p => p.ViewCount),
-                PopularAuthors = packages.Where(p => p.Authors != null && p.Authors.Any())
-                    .SelectMany(p => p.Authors.Select(a => a.Trim()))
-                    .GroupBy(author => author)
-                    .OrderByDescending(g => g.Count())
-                    .Take(20) 
-                    .Select(g => g.Key)
-                    .ToList(),
-                MostDownloaded = activePackages.OrderByDescending(p => p.Downloads).Take(5).ToList(),
-                RecentlyAdded = activePackages.OrderByDescending(p => p.CreatedAt).Take(5).ToList(),
-                LastUpdated = DateTime.UtcNow
-            };
+                var packages = await _context.Packages.ToListAsync();
+                var activePackages = packages.Where(p => p.IsActive).ToList();
+
+                return new PackageStatistics
+                {
+                    TotalPackages = packages.Count,
+                    ActivePackages = activePackages.Count,
+                    TotalDownloads = activePackages.Sum(p => p.Downloads),
+                    TotalViews = activePackages.Sum(p => p.ViewCount),
+                    PopularAuthors = packages.Where(p => p.Authors != null && p.Authors.Any())
+                        .SelectMany(p => p.Authors.Select(a => a.Trim()))
+                        .GroupBy(author => author)
+                        .OrderByDescending(g => g.Count())
+                        .Take(20)
+                        .Select(g => g.Key)
+                        .ToList(),
+                    MostDownloaded = activePackages.OrderByDescending(p => p.Downloads).Take(5).ToList(),
+                    RecentlyAdded = activePackages.OrderByDescending(p => p.CreatedAt).Take(5).ToList(),
+                    LastUpdated = DateTime.UtcNow
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving package statistics");
+                return new PackageStatistics { LastUpdated = DateTime.UtcNow };
+            }
         }
 
         public async Task<bool> IncrementDownloadCountAsync(int packageId)
@@ -411,59 +451,107 @@ namespace Purrnet.Services
 
         public async Task<List<Package>> GetPackagesByTagAsync(string tag)
         {
-            return await _context.Packages
-                .Where(p => p.IsActive && p.Keywords.Contains(tag))
-                .OrderByDescending(p => p.Downloads)
-                .ToListAsync();
+            try
+            {
+                return await _context.Packages
+                    .Where(p => p.IsActive && p.Keywords.Contains(tag))
+                    .OrderByDescending(p => p.Downloads)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving packages by tag {Tag}", tag);
+                return new List<Package>();
+            }
         }
 
         public async Task<List<Package>> GetPackagesByAuthorAsync(string author)
         {
-            return await _context.Packages
-                .Where(p => p.IsActive && p.Authors.Contains(author))
-                .OrderByDescending(p => p.CreatedAt)
-                .ToListAsync();
+            try
+            {
+                return await _context.Packages
+                    .Where(p => p.IsActive && p.Authors.Contains(author))
+                    .OrderByDescending(p => p.CreatedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving packages by author {Author}", author);
+                return new List<Package>();
+            }
         }
 
         public async Task<List<Package>> GetPackagesByCategoryAsync(string category)
         {
-            return await _context.Packages
-                .Where(p => p.IsActive && p.CategoryEntities.Any(c => c.Name == category))
-                .OrderByDescending(p => p.Downloads)
-                .ToListAsync();
+            try
+            {
+                return await _context.Packages
+                    .Where(p => p.IsActive && p.CategoryEntities.Any(c => c.Name == category))
+                    .OrderByDescending(p => p.Downloads)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving packages by category {Category}", category);
+                return new List<Package>();
+            }
         }
 
         public async Task<List<string>> GetPopularTagsAsync(int limit = 10)
         {
-            var packages = await _context.Packages.Where(p => p.IsActive).ToListAsync();
-            return packages
-                .SelectMany(p => p.Keywords)
-                .GroupBy(t => t)
-                .OrderByDescending(g => g.Count())
-                .Take(limit)
-                .Select(g => g.Key)
-                .ToList();
+            try
+            {
+                var packages = await _context.Packages.Where(p => p.IsActive).ToListAsync();
+                return packages
+                    .SelectMany(p => p.Keywords)
+                    .GroupBy(t => t)
+                    .OrderByDescending(g => g.Count())
+                    .Take(limit)
+                    .Select(g => g.Key)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving popular tags");
+                return new List<string>();
+            }
         }
 
         public async Task<List<string>> GetPopularAuthorsAsync(int limit = 10)
         {
-            var packages = await _context.Packages.Where(p => p.IsActive).ToListAsync();
-            return packages
-                .SelectMany(p => p.Authors)
-                .GroupBy(a => a)
-                .OrderByDescending(g => g.Count())
-                .Take(limit)
-                .Select(g => g.Key)
-                .ToList();
+            try
+            {
+                var packages = await _context.Packages.Where(p => p.IsActive).ToListAsync();
+                return packages
+                    .SelectMany(p => p.Authors)
+                    .GroupBy(a => a)
+                    .OrderByDescending(g => g.Count())
+                    .Take(limit)
+                    .Select(g => g.Key)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving popular authors");
+                return new List<string>();
+            }
         }
 
         public async Task<List<string>> GetPopularCategoriesAsync(int limit = 10)
         {
-            return await _context.Categories
-                .OrderByDescending(c => c.Packages.Count)
-                .Take(limit)
-                .Select(c => c.Name)
-                .ToListAsync();
+            try
+            {
+                return await _context.Categories
+                    .OrderByDescending(c => c.Packages.Count)
+                    .Take(limit)
+                    .Select(c => c.Name)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving popular categories");
+                return new List<string>();
+            }
         }
 
         public async Task<bool> ClearAllDataAsync()
@@ -635,7 +723,15 @@ namespace Purrnet.Services
 
         public async Task<int> GetPackageCountAsync()
         {
-            return await _context.Packages.CountAsync(p => p.IsActive);
+            try
+            {
+                return await _context.Packages.CountAsync(p => p.IsActive);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving package count");
+                return 0;
+            }
         }
 
         // Migrate legacy string-based categories into relational Category entities

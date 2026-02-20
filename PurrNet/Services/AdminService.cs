@@ -17,50 +17,74 @@ namespace Purrnet.Services
 
         public async Task<List<Package>> GetPendingPackagesAsync()
         {
-            return await _context.Packages
-                .Where(p => p.ApprovalStatus == "Pending")
-                .OrderBy(p => p.CreatedAt)
-                .ToListAsync();
+            try
+            {
+                return await _context.Packages
+                    .Where(p => p.ApprovalStatus == "Pending")
+                    .OrderBy(p => p.CreatedAt)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving pending packages");
+                return new List<Package>();
+            }
         }
 
         public async Task<List<Package>> GetPackagesByStatusAsync(string status, string? search = null, string? sortBy = null)
         {
-            var query = _context.Packages.AsQueryable();
-
-            // Apply status filter
-            if (status != "all")
+            try
             {
-                query = query.Where(p => p.ApprovalStatus.ToLower() == status.ToLower());
+                var query = _context.Packages.AsQueryable();
+
+                // Apply status filter
+                if (status != "all")
+                {
+                    query = query.Where(p => p.ApprovalStatus.ToLower() == status.ToLower());
+                }
+
+                // Apply search filter
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(p => 
+                        p.Name.Contains(search) || 
+                        p.Description.Contains(search) ||
+                        p.Authors.Any(a => a.Contains(search)));
+                }
+
+                // Apply sorting
+                query = sortBy switch
+                {
+                    "oldest" => query.OrderBy(p => p.CreatedAt),
+                    "name" => query.OrderBy(p => p.Name),
+                    "downloads" => query.OrderByDescending(p => p.Downloads),
+                    _ => query.OrderByDescending(p => p.CreatedAt) // newest (default)
+                };
+
+                return await query.ToListAsync();
             }
-
-            // Apply search filter
-            if (!string.IsNullOrEmpty(search))
+            catch (Exception ex)
             {
-                query = query.Where(p => 
-                    p.Name.Contains(search) || 
-                    p.Description.Contains(search) ||
-                    p.Authors.Any(a => a.Contains(search)));
+                _logger.LogError(ex, "Error retrieving packages by status {Status}", status);
+                return new List<Package>();
             }
-
-            // Apply sorting
-            query = sortBy switch
-            {
-                "oldest" => query.OrderBy(p => p.CreatedAt),
-                "name" => query.OrderBy(p => p.Name),
-                "downloads" => query.OrderByDescending(p => p.Downloads),
-                _ => query.OrderByDescending(p => p.CreatedAt) // newest (default)
-            };
-
-            return await query.ToListAsync();
         }
 
         public async Task<int> GetPackageCountByStatusAsync(string status)
         {
-            if (status == "all")
-                return await _context.Packages.CountAsync();
+            try
+            {
+                if (status == "all")
+                    return await _context.Packages.CountAsync();
 
-            return await _context.Packages
-                .CountAsync(p => p.ApprovalStatus.ToLower() == status.ToLower());
+                return await _context.Packages
+                    .CountAsync(p => p.ApprovalStatus.ToLower() == status.ToLower());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving package count by status {Status}", status);
+                return 0;
+            }
         }
 
         public async Task<bool> ApprovePackageAsync(int packageId, string adminUserId)
@@ -147,22 +171,30 @@ namespace Purrnet.Services
 
         public async Task<List<AdminActivity>> GetRecentActivityAsync()
         {
-            return await _context.AdminActivities
-                .OrderByDescending(a => a.Timestamp)
-                .Take(10)
-                .Select(a => new AdminActivity
-                {
-                    Id = a.Id,
-                    Action = a.Action,
-                    Description = a.Description,
-                    //Message = a.Description, // Use Description as Message
-                    UserId = a.UserId.ToString(),
-                    Username = a.Username,
-                    Timestamp = a.Timestamp,
-                    Icon = GetActivityIcon(a.Action),
-                    Color = GetActivityColor(a.Action)
-                })
-                .ToListAsync();
+            try
+            {
+                return await _context.AdminActivities
+                    .OrderByDescending(a => a.Timestamp)
+                    .Take(10)
+                    .Select(a => new AdminActivity
+                    {
+                        Id = a.Id,
+                        Action = a.Action,
+                        Description = a.Description,
+                        //Message = a.Description, // Use Description as Message
+                        UserId = a.UserId.ToString(),
+                        Username = a.Username,
+                        Timestamp = a.Timestamp,
+                        Icon = GetActivityIcon(a.Action),
+                        Color = GetActivityColor(a.Action)
+                    })
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving recent admin activity");
+                return new List<AdminActivity>();
+            }
         }
 
         public async Task LogActivityAsync(string action, string description, string userId)

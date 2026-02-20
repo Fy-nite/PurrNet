@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "purrnet", "purrnet.csproj", "{D4900EA1-CC34-3CC5-47F7-8E77500447AB}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D4900EA1-CC34-3CC5-47F7-8E77500447AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4900EA1-CC34-3CC5-47F7-8E77500447AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4900EA1-CC34-3CC5-47F7-8E77500447AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4900EA1-CC34-3CC5-47F7-8E77500447AB}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D4B31939-4D8B-4965-8CC2-B8866A73C5E6}
+	EndGlobalSection
+EndGlobal
