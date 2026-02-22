@@ -1,0 +1,184 @@
+@page "{id:int}"
+@model Purrnet.Pages.Admin.EditPackageModel
+@{
+    ViewData["Title"] = "Edit Package";
+    Layout = "_Layout";
+}
+
+<div class="container">
+    <div class="d-flex align-items-center mb-4 gap-2">
+        <a href="/Admin/Packages" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+        <h1 class="mb-0"><i class="bi bi-pencil-square"></i> Edit Package</h1>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <div class="alert @(Model.IsSuccess ? "alert-success" : "alert-danger")" role="alert">
+            @Model.Message
+        </div>
+    }
+
+    @if (Model.Package != null)
+    {
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Package Details — <strong>@Model.Package.Name</strong></h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post">
+                            <input type="hidden" name="id" value="@Model.Package.Id" />
+
+                            <div class="mb-3">
+                                <label class="form-label">Name <span class="text-muted">(read-only)</span></label>
+                                <input type="text" class="form-control" value="@Model.Package.Name" readonly />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Version</label>
+                                <input type="text" name="Version" class="form-control" value="@Model.Package.Version" required />
+                                @if (Model.Package.VersionHistory?.Count > 0)
+                                {
+                                    <div class="form-text">Previous versions: @string.Join(", ", Model.Package.VersionHistory)</div>
+                                }
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Description</label>
+                                <textarea name="Description" class="form-control" rows="3">@Model.Package.Description</textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Authors <span class="text-muted">(comma-separated)</span></label>
+                                <input type="text" name="Authors" class="form-control" value="@string.Join(", ", Model.Package.Authors)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Icon URL</label>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <input type="url" name="IconUrl" id="iconUrlInput" class="form-control" value="@Model.Package.IconUrl" placeholder="https://example.com/icon.png" />
+                                    <img id="iconPreviewImg" src="@Model.Package.IconUrl"
+                                         alt="Icon"
+                                         style="width:48px;height:48px;object-fit:contain;border-radius:8px;border:1px solid var(--bs-border-color,#dee2e6);padding:2px;flex-shrink:0;@(string.IsNullOrEmpty(Model.Package.IconUrl) ? "display:none;" : "")"
+                                         onerror="this.style.display='none'" />
+                                </div>
+                                <div class="form-text">URL to an image (PNG, JPG, or SVG) shown on the package page and in Browse.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Git Repository URL</label>
+                                <input type="url" name="Git" class="form-control" value="@Model.Package.Git" required />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Homepage</label>
+                                <input type="text" name="Homepage" class="form-control" value="@Model.Package.Homepage" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Issue Tracker</label>
+                                <input type="text" name="IssueTracker" class="form-control" value="@Model.Package.IssueTracker" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Installer Script</label>
+                                <input type="text" name="Installer" class="form-control" value="@Model.Package.Installer" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Dependencies <span class="text-muted">(comma-separated)</span></label>
+                                <input type="text" name="Dependencies" class="form-control" value="@string.Join(", ", Model.Package.Dependencies)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Categories <span class="text-muted">(comma-separated)</span></label>
+                                <input type="text" name="Categories" class="form-control" value="@string.Join(", ", Model.Package.Categories)" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">License</label>
+                                <input type="text" name="License" class="form-control" value="@Model.Package.License" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Supported Platforms <span class="text-muted">(comma-separated)</span></label>
+                                <input type="text" name="SupportedPlatforms" class="form-control" value="@string.Join(", ", Model.Package.SupportedPlatforms)" />
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-floppy"></i> Save Changes
+                                </button>
+                                <a href="/Admin/Packages" class="btn btn-secondary">Cancel</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card mb-3">
+                    <div class="card-header"><h6 class="mb-0"><i class="bi bi-clock-history"></i> Version History</h6></div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span><strong>@Model.Package.Version</strong></span>
+                                <span class="badge bg-success">current</span>
+                            </li>
+                            @if (Model.Package.VersionHistory?.Count > 0)
+                            {
+                                @foreach (var v in Model.Package.VersionHistory.AsEnumerable().Reverse())
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <span>@v</span>
+                                        <span class="badge bg-secondary">old</span>
+                                    </li>
+                                }
+                            }
+                            else
+                            {
+                                <li class="list-group-item text-muted">No previous versions</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header"><h6 class="mb-0"><i class="bi bi-bar-chart"></i> Stats</h6></div>
+                    <div class="card-body">
+                        <p class="mb-1"><i class="bi bi-download text-primary"></i> <strong>@Model.Package.Downloads.ToString("N0")</strong> downloads</p>
+                        <p class="mb-1"><i class="bi bi-eye text-info"></i> <strong>@Model.Package.ViewCount.ToString("N0")</strong> views</p>
+                        <p class="mb-1"><i class="bi bi-calendar text-muted"></i> Created <strong>@Model.Package.CreatedAt.ToString("MMM dd, yyyy")</strong></p>
+                        <p class="mb-0"><i class="bi bi-arrow-repeat text-muted"></i> Updated <strong>@Model.Package.LastUpdated.ToString("MMM dd, yyyy")</strong></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-danger">Package not found.</div>
+    }
+</div>
+
+@section Scripts {
+<script>
+const iconInput = document.getElementById('iconUrlInput');
+const iconImg   = document.getElementById('iconPreviewImg');
+if (iconInput && iconImg) {
+    iconInput.addEventListener('input', function() {
+        const url = this.value.trim();
+        if (url) {
+            iconImg.src = url;
+            iconImg.style.display = '';
+            iconImg.onerror = () => iconImg.style.display = 'none';
+        } else {
+            iconImg.style.display = 'none';
+        }
+    });
+}
+</script>
+}

@@ -65,7 +65,8 @@ namespace Purrnet.Controllers.Api
                         IssueTracker = p.IssueTracker,
                         Git = p.Git,
                         Installer = p.Installer,
-                        Dependencies = p.Dependencies
+                        Dependencies = p.Dependencies,
+                        IconUrl = p.IconUrl
                     }).ToList();
                 }
 
@@ -74,6 +75,23 @@ namespace Purrnet.Controllers.Api
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting packages");
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpGet("{packageName}/versions")]
+        public async Task<ActionResult<List<string>>> GetPackageVersionsAsync(string packageName)
+        {
+            try
+            {
+                var versions = await _packageService.GetPackageVersionsAsync(packageName);
+                if (versions.Count == 0)
+                    return NotFound($"Package '{packageName}' not found");
+                return Ok(versions);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting versions for {PackageName}", packageName);
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -113,7 +131,8 @@ namespace Purrnet.Controllers.Api
                     IssueTracker = package.IssueTracker,
                     Git = package.Git,
                     Installer = package.Installer,
-                    Dependencies = package.Dependencies
+                    Dependencies = package.Dependencies,
+                    IconUrl = package.IconUrl
                 };
 
                 return Ok(PurrConfig);
@@ -291,6 +310,94 @@ namespace Purrnet.Controllers.Api
             }
         }
 
+        [HttpGet("{packageName}/reviews")]
+        public async Task<ActionResult<List<PackageReview>>> GetReviewsAsync(string packageName)
+        {
+            try
+            {
+                var reviews = await _packageService.GetPackageReviewsAsync(packageName);
+                return Ok(reviews.Select(r => new
+                {
+                    r.Id,
+                    r.Rating,
+                    r.Title,
+                    r.Body,
+                    r.ReviewerName,
+                    r.ReviewerAvatarUrl,
+                    r.CreatedAt,
+                    r.UserId
+                }));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting reviews for {PackageName}", packageName);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        [HttpPost("{packageName}/reviews")]
+        public async Task<ActionResult> SubmitReviewAsync(string packageName, [FromBody] SubmitReviewRequest request)
+        {
+            if (request.Rating < 1 || request.Rating > 5)
+                return BadRequest("Rating must be between 1 and 5.");
+            if (string.IsNullOrWhiteSpace(request.Body))
+                return BadRequest("Review body is required.");
+
+            var userIdClaim = User.FindFirst("UserId");
+            int? userId = null;
+            string reviewerName = "Anonymous";
+            string? reviewerAvatarUrl = null;
+
+            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out var parsedId))
+            {
+                userId = parsedId;
+                reviewerName = User.Identity?.Name ?? "User";
+            }
+
+            var (success, error) = await _packageService.AddPackageReviewAsync(
+                packageName, userId, reviewerName, reviewerAvatarUrl,
+                request.Rating, request.Title ?? string.Empty, request.Body);
+
+            if (!success)
+                return BadRequest(new { error });
+
+            return Ok(new { message = "Review submitted successfully." });
+        }
+
+        [HttpDelete("{packageName}/reviews/{reviewId:int}")]
+        [Authorize]
+        public async Task<ActionResult> DeleteReviewAsync(string packageName, int reviewId)
+        {
+            var userIdClaim = User.FindFirst("UserId");
+            int? userId = null;
+            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out var parsedId))
+                userId = parsedId;
+
+            bool isAdmin = User.IsInRole("Admin") || (User.FindFirst("IsAdmin")?.Value == "true");
+
+            var deleted = await _packageService.DeleteReviewAsync(reviewId, userId, isAdmin);
+            return deleted ? Ok() : Forbid();
+        }
+
+        [HttpGet("{packageName}/deptree")]
+        public async Task<ActionResult<DependencyNode>> GetDependencyTreeAsync(
+            string packageName, [FromQuery] int depth = 3)
+        {
+            try
+            {
+                depth = Math.Clamp(depth, 1, 5);
+                var tree = await _packageService.GetDependencyTreeAsync(packageName, depth);
+                if (tree == null)
+                    return NotFound($"Package '{packageName}' not found");
+                return Ok(tree);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error building dependency tree for {PackageName}", packageName);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
         [HttpDelete("cache")]
         public ActionResult ClearCache()
         {
@@ -328,7 +435,8 @@ namespace Purrnet.Controllers.Api
                             IssueTracker = pkg.IssueTracker,
                             Git = pkg.Git,
                             Installer = pkg.Installer,
-                            Dependencies = pkg.Dependencies
+                            Dependencies = pkg.Dependencies,
+                            IconUrl = pkg.IconUrl
                         };
 
                         var json = JsonSerializer.Serialize(purr, new JsonSerializerOptions { WriteIndented = true });

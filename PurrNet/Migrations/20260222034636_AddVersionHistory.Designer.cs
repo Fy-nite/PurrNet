@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Purrnet.Data;
 
@@ -9,10 +10,12 @@ using Purrnet.Data;
 
 namespace Purrnet.Migrations
 {
-
-    partial class PurrDbContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(PurrDbContext))]
+    [Migration("20260222034636_AddVersionHistory")]
+    partial class AddVersionHistory
     {
-        protected  void sBuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.0");
@@ -260,6 +263,10 @@ namespace Purrnet.Migrations
                     b.Property<string>("Version")
                         .IsRequired()
                         .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VersionHistory")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int>("ViewCount")

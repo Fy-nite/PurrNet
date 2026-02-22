@@ -105,13 +105,23 @@ namespace Fur
 
             // Downgrade command
             var downgradeCommand = new Command("downgrade", "Downgrade a package to a specific version");
-            var downgradeArg = new Argument<string>("package", "Package name with optional version (name@version)");
+            var downgradeArg = new Argument<string>("package", "Package name with version (name@version)");
             downgradeCommand.AddArgument(downgradeArg);
             downgradeCommand.SetHandler(async (string package) =>
             {
                 var packageManager = new PackageManager(settings.RepositoryUrls);
                 await packageManager.DowngradePackageAsync(package);
             }, downgradeArg);
+
+            // Versions command
+            var versionsCommand = new Command("versions", "List available versions of a package");
+            var versionsArg = new Argument<string>("package", "Package name");
+            versionsCommand.AddArgument(versionsArg);
+            versionsCommand.SetHandler(async (string package) =>
+            {
+                var packageManager = new PackageManager(settings.RepositoryUrls);
+                await packageManager.ListVersionsAsync(package);
+            }, versionsArg);
 
             // Uninstall command
             var uninstallCommand = new Command("uninstall", "Uninstall a package");
@@ -130,6 +140,7 @@ namespace Fur
             rootCommand.AddCommand(statsCommand);
             rootCommand.AddCommand(upgradeCommand);
             rootCommand.AddCommand(downgradeCommand);
+            rootCommand.AddCommand(versionsCommand);
             rootCommand.AddCommand(uninstallCommand);
 
             return await rootCommand.InvokeAsync(args);

@@ -107,6 +107,7 @@ namespace Purrnet.Services
                     Git = PurrConfig.Git,
                     Installer = PurrConfig.Installer ?? string.Empty,
                     Dependencies = PurrConfig.Dependencies ?? new List<string>(),
+                    IconUrl = PurrConfig.IconUrl ?? string.Empty,
                     InstallCommand = $"Purr install {PurrConfig.Name}",
                     Downloads = 0,
                     ViewCount = 0,
@@ -176,6 +177,17 @@ namespace Purrnet.Services
                     return false;
                 }
 
+                // Record the current version in history before updating
+                if (!string.IsNullOrEmpty(package.Version) && package.Version != PurrConfig.Version)
+                {
+                    var history = package.VersionHistory ?? new List<string>();
+                    if (!history.Contains(package.Version))
+                    {
+                        history.Add(package.Version);
+                        package.VersionHistory = history;
+                    }
+                }
+
                 package.Version = PurrConfig.Version;
                 package.Authors = PurrConfig.Authors ?? new List<string>();
                 package.SupportedPlatforms = PurrConfig.SupportedPlatforms ?? new List<string>();
@@ -189,6 +201,7 @@ namespace Purrnet.Services
                 package.Git = PurrConfig.Git;
                 package.Installer = PurrConfig.Installer ?? string.Empty;
                 package.Dependencies = PurrConfig.Dependencies ?? new List<string>();
+                package.IconUrl = PurrConfig.IconUrl ?? string.Empty;
                 // Update categories relationally and as legacy list
                 if (PurrConfig.Categories != null)
                 {
@@ -247,6 +260,31 @@ namespace Purrnet.Services
                 _logger.LogError(ex, "Error deleting package {PackageId}", id);
                 return false;
             }
+        }
+
+        public async Task<List<string>> GetPackageVersionsAsync(string packageName)
+        {
+            var package = await _context.Packages
+                .Where(p => p.Name == packageName && p.IsActive)
+                .FirstOrDefaultAsync();
+
+            if (package == null)
+                return new List<string>();
+
+            var versions = new List<string>();
+            if (package.VersionHistory != null)
+                versions.AddRange(package.VersionHistory);
+
+            // Add the current version at the top
+            if (!string.IsNullOrEmpty(package.Version) && !versions.Contains(package.Version))
+                versions.Insert(0, package.Version);
+            else if (!string.IsNullOrEmpty(package.Version))
+            {
+                versions.Remove(package.Version);
+                versions.Insert(0, package.Version);
+            }
+
+            return versions;
         }
 
         public async Task<bool> TogglePackageStatusAsync(int id)
@@ -353,7 +391,8 @@ namespace Purrnet.Services
                     IssueTracker = p.IssueTracker,
                     Git = p.Git,
                     Installer = p.Installer,
-                    Dependencies = p.Dependencies
+                    Dependencies = p.Dependencies,
+                    IconUrl = p.IconUrl
                 }).ToList();
             }
 
@@ -698,7 +737,8 @@ namespace Purrnet.Services
                         IssueTracker = p.IssueTracker ?? string.Empty,
                         Git = p.Git ?? string.Empty,
                         Installer = p.Installer ?? string.Empty,
-                        Dependencies = p.Dependencies ?? new List<string>()
+                        Dependencies = p.Dependencies ?? new List<string>(),
+                        IconUrl = p.IconUrl ?? string.Empty
                     },
                     Owner = p.Owner == null ? null : new OwnerInfo
                     {
@@ -777,6 +817,150 @@ namespace Purrnet.Services
                 _logger.LogError(ex, "Error migrating legacy categories");
                 return false;
             }
+        }
+
+        // ─── Reviews ──────────────────────────────────────────────────────────────
+
+        public async Task<List<PackageReview>> GetPackageReviewsAsync(string packageName)
+        {
+            return await _context.PackageReviews
+                .Where(r => r.Package != null && r.Package.Name == packageName)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<(bool success, string error)> AddPackageReviewAsync(
+            string packageName, int? userId, string reviewerName,
+            string? reviewerAvatarUrl, int rating, string title, string body)
+        {
+            try
+            {
+                var package = await _context.Packages.FirstOrDefaultAsync(p => p.Name == packageName && p.IsActive);
+                if (package == null)
+                    return (false, "Package not found.");
+
+                if (rating < 1 || rating > 5)
+                    return (false, "Rating must be between 1 and 5.");
+
+                // One review per logged-in user
+                if (userId.HasValue)
+                {
+                    var exists = await _context.PackageReviews
+                        .AnyAsync(r => r.PackageId == package.Id && r.UserId == userId.Value);
+                    if (exists)
+                        return (false, "You have already reviewed this package.");
+                }
+
+                var review = new PackageReview
+                {
+                    PackageId = package.Id,
+                    UserId = userId,
+                    Rating = rating,
+                    Title = title.Trim(),
+                    Body = body.Trim(),
+                    ReviewerName = reviewerName,
+                    ReviewerAvatarUrl = reviewerAvatarUrl,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.PackageReviews.Add(review);
+                await _context.SaveChangesAsync();
+
+                // Recalculate aggregate rating on the Package
+                var allRatings = await _context.PackageReviews
+                    .Where(r => r.PackageId == package.Id)
+                    .Select(r => r.Rating)
+                    .ToListAsync();
+
+                package.Rating = allRatings.Count > 0 ? allRatings.Average() : 0;
+                package.RatingCount = allRatings.Count;
+                await _context.SaveChangesAsync();
+
+                return (true, string.Empty);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding review for {PackageName}", packageName);
+                return (false, "An error occurred while saving the review.");
+            }
+        }
+
+        public async Task<bool> HasUserReviewedPackageAsync(string packageName, int userId)
+        {
+            return await _context.PackageReviews
+                .AnyAsync(r => r.Package != null && r.Package.Name == packageName && r.UserId == userId);
+        }
+
+        public async Task<bool> DeleteReviewAsync(int reviewId, int? requestingUserId, bool isAdmin)
+        {
+            try
+            {
+                var review = await _context.PackageReviews.Include(r => r.Package).FirstOrDefaultAsync(r => r.Id == reviewId);
+                if (review == null) return false;
+                if (!isAdmin && review.UserId != requestingUserId) return false;
+
+                _context.PackageReviews.Remove(review);
+                await _context.SaveChangesAsync();
+
+                // Recalculate aggregate rating
+                if (review.Package != null)
+                {
+                    var allRatings = await _context.PackageReviews
+                        .Where(r => r.PackageId == review.PackageId)
+                        .Select(r => r.Rating)
+                        .ToListAsync();
+
+                    review.Package.Rating = allRatings.Count > 0 ? allRatings.Average() : 0;
+                    review.Package.RatingCount = allRatings.Count;
+                    await _context.SaveChangesAsync();
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting review {ReviewId}", reviewId);
+                return false;
+            }
+        }
+
+        // ─── Dependency Tree ──────────────────────────────────────────────────────
+
+        public async Task<DependencyNode?> GetDependencyTreeAsync(string packageName, int maxDepth = 3)
+        {
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            return await BuildNodeAsync(packageName, maxDepth, visited);
+        }
+
+        private async Task<DependencyNode?> BuildNodeAsync(string packageName, int depth, HashSet<string> visited)
+        {
+            var package = await _context.Packages
+                .FirstOrDefaultAsync(p => p.Name == packageName && p.IsActive);
+
+            if (package == null)
+                return new DependencyNode { Name = packageName, Resolved = false };
+
+            var node = new DependencyNode
+            {
+                Name = package.Name,
+                Version = package.Version,
+                Description = package.Description,
+                Resolved = true
+            };
+
+            if (depth <= 0 || visited.Contains(packageName))
+                return node;
+
+            visited.Add(packageName);
+
+            foreach (var dep in package.Dependencies)
+            {
+                if (string.IsNullOrWhiteSpace(dep)) continue;
+                var child = await BuildNodeAsync(dep.Trim(), depth - 1, visited);
+                if (child != null) node.Dependencies.Add(child);
+            }
+
+            return node;
         }
     }
 }

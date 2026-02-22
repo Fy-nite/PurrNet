@@ -154,6 +154,42 @@ public class ApiService : IDisposable
         return null;
     }
 
+    public async Task<string[]?> GetPackageVersionsAsync(string packageName)
+    {
+        foreach (var baseUrl in _baseUrls)
+        {
+            var url = $"{baseUrl}/api/v1/packages/{Uri.EscapeDataString(packageName)}/versions";
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    return JsonSerializer.Deserialize<string[]>(json);
+                }
+                else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    ConsoleHelper.WriteError($"Package '{packageName}' not found");
+                    return null;
+                }
+                else
+                {
+                    await HandleErrorResponse(response);
+                }
+            }
+            catch (HttpRequestException ex)
+            {
+                ConsoleHelper.WriteError($"Network error: {ex.Message}");
+                ConsoleHelper.WriteInfo($"Make sure the FUR API server at {baseUrl} is running");
+            }
+            catch (Exception ex)
+            {
+                ConsoleHelper.WriteError($"Error fetching versions from {baseUrl}: {ex.Message}");
+            }
+        }
+        return null;
+    }
+
     public async Task<string[]?> GetCategoriesAsync()
     {
         foreach (var baseUrl in _baseUrls)

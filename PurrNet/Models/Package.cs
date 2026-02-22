@@ -61,6 +61,8 @@ namespace Purrnet.Models
         public long SizeInBytes { get; set; }
         public string? Readme { get; set; }
         public string? Changelog { get; set; }
+        public string IconUrl { get; set; } = string.Empty;
+        public List<string> VersionHistory { get; set; } = new();
 
         // Package approval system
         public string ApprovalStatus { get; set; } = "Pending"; // Default to Approved for backward compatibility
@@ -70,6 +72,47 @@ namespace Purrnet.Models
         // Navigation properties
         public User? Owner { get; set; }
         public List<User> Maintainers { get; set; } = new();
+        public List<PackageReview> Reviews { get; set; } = new();
+    }
+
+    public class PackageReview
+    {
+        public int Id { get; set; }
+        public int PackageId { get; set; }
+        public int? UserId { get; set; }
+
+        /// <summary>1-5 star rating</summary>
+        public int Rating { get; set; }
+
+        public string Title { get; set; } = string.Empty;
+        public string Body { get; set; } = string.Empty;
+
+        /// <summary>Display name – copied at review time so it survives user renames</summary>
+        public string ReviewerName { get; set; } = string.Empty;
+        public string? ReviewerAvatarUrl { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+
+        // Navigation
+        public Package? Package { get; set; }
+        public User? User { get; set; }
+    }
+
+    public class DependencyNode
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Version { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public List<DependencyNode> Dependencies { get; set; } = new();
+        public bool Resolved { get; set; }
+    }
+
+    public class SubmitReviewRequest
+    {
+        public int Rating { get; set; }
+        public string? Title { get; set; }
+        public string Body { get; set; } = string.Empty;
     }
 
     public class PurrConfig
@@ -123,6 +166,9 @@ namespace Purrnet.Models
         
         [JsonPropertyName("dependencies")]
         public List<string> Dependencies { get; set; } = new();
+
+        [JsonPropertyName("icon_url")]
+        public string IconUrl { get; set; } = string.Empty;
     }
 
     public class PackageListResponse
@@ -173,6 +219,7 @@ namespace Purrnet.Models
         public List<Package> OwnedPackages { get; set; } = new();
         public List<Package> MaintainedPackages { get; set; } = new();
         public List<AdminActivityEntity> AdminActivities { get; set; } = new();
+        public List<PackageReview> Reviews { get; set; } = new();
     }
 
     public class AdminActivity

@@ -20,6 +20,7 @@ namespace Purrnet.Services
         Task<List<Package>> GetPackagesByTagAsync(string tag);
         Task<List<Package>> GetPackagesByAuthorAsync(string author);
         Task<List<Package>> GetPackagesByCategoryAsync(string category);
+        Task<List<string>> GetPackageVersionsAsync(string packageName);
 
         // Statistics and analytics
         Task<PackageStatistics> GetStatisticsAsync();
@@ -36,5 +37,14 @@ namespace Purrnet.Services
         Task<bool> ExportPackagesToJsonAsync(string jsonFilePath);
         Task<int> GetPackageCountAsync();
         Task<bool> MigrateCategoriesAsync();
+
+        // Reviews
+        Task<List<PackageReview>> GetPackageReviewsAsync(string packageName);
+        Task<(bool success, string error)> AddPackageReviewAsync(string packageName, int? userId, string reviewerName, string? reviewerAvatarUrl, int rating, string title, string body);
+        Task<bool> HasUserReviewedPackageAsync(string packageName, int userId);
+        Task<bool> DeleteReviewAsync(int reviewId, int? requestingUserId, bool isAdmin);
+
+        // Dependency tree
+        Task<DependencyNode?> GetDependencyTreeAsync(string packageName, int maxDepth = 3);
     }
 }

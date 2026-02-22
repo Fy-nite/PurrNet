@@ -451,8 +451,56 @@ public class PackageManager
     public async Task DowngradePackageAsync(string packageSpec)
     {
         var (packageName, version) = ParsePackageSpec(packageSpec);
-        ConsoleHelper.WriteStep("Downgrading", packageName + (version != null ? $"@{version}" : ""));
-        await InstallPackageAsync(packageName + (version != null ? $"@{version}" : ""));
+        if (version == null)
+        {
+            ConsoleHelper.WriteWarning($"No version specified. Use 'purr versions {packageName}' to see available versions.");
+            ConsoleHelper.WriteInfo($"Usage: purr downgrade {packageName}@<version>");
+            return;
+        }
+        ConsoleHelper.WriteStep("Downgrading", $"{packageName} to v{version}");
+        await InstallPackageAsync($"{packageName}@{version}");
+    }
+
+    public async Task ListVersionsAsync(string packageName)
+    {
+        ConsoleHelper.WriteStep("Fetching", $"versions for '{packageName}'");
+
+        var versions = await _apiService.GetPackageVersionsAsync(packageName);
+        if (versions == null || versions.Length == 0)
+        {
+            ConsoleHelper.WriteWarning($"No versions found for '{packageName}'");
+            return;
+        }
+
+        ConsoleHelper.WriteHeader($"Available versions of {packageName}");
+        for (int i = 0; i < versions.Length; i++)
+        {
+            var v = versions[i];
+            Console.Write("  ");
+            if (i == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.Green;
+                Console.Write("● ");
+            }
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write("○ ");
+            }
+            Console.ResetColor();
+            ConsoleHelper.WritePackage(packageName, v);
+            if (i == 0)
+            {
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write("  (latest)");
+                Console.ResetColor();
+            }
+            Console.WriteLine();
+        }
+
+        Console.WriteLine();
+        ConsoleHelper.WriteInfo($"Install a specific version: purr install {packageName}@<version>");
+        ConsoleHelper.WriteInfo($"Downgrade to a version:    purr downgrade {packageName}@<version>");
     }
 
     public async Task UninstallPackageAsync(string packageName)

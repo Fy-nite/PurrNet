@@ -66,6 +66,17 @@ namespace Purrnet.Controllers.Api
             var success = await _packageService.DeletePackageAsync(packageId);
             return success ? Ok() : BadRequest("Failed to delete package");
         }
+
+        [HttpPut("packages/{packageId}")]
+        public async Task<IActionResult> EditPackage(int packageId, [FromBody] Purrnet.Models.PurrConfig config)
+        {
+            if (!User.HasClaim("IsAdmin", "True"))
+                return Forbid();
+
+            var userName = User.Identity?.Name ?? "admin";
+            var success = await _packageService.UpdatePackageAsync(packageId, config, userName);
+            return success ? Ok() : BadRequest("Failed to update package");
+        }
     }
 
     public class RejectRequest

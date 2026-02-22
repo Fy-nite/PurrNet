@@ -91,6 +91,9 @@
                                             <a asp-page="/Packages/Details" asp-route-name="@package.Name" class="btn btn-outline-info" title="View">
                                                 <i class="bi bi-eye"></i>
                                             </a>
+                                            <a href="/Admin/EditPackage/@package.Id" class="btn btn-outline-primary" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
                                             <button onclick="togglePackageStatus(@package.Id)" class="btn btn-outline-warning" title="@(package.IsActive ? "Disable" : "Enable")">
                                                 <i class="bi bi-toggle-@(package.IsActive ? "on" : "off")"></i>
                                             </button>

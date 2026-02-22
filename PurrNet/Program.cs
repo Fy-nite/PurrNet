@@ -294,6 +294,24 @@ app.UseAuthorization();
 app.MapRazorPages();
 app.MapControllers();
 
+// Simple endpoint to return the latest release tag as plain text for installers
+app.MapGet("/Latest", async () =>
+{
+    try
+    {
+        using var httpClient = new HttpClient();
+        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("PurrInstaller/1.0");
+        var response = await httpClient.GetStringAsync("https://api.github.com/repos/Fy-nite/Purr/releases/latest");
+        using var doc = System.Text.Json.JsonDocument.Parse(response);
+        var tag = doc.RootElement.GetProperty("tag_name").GetString();
+        return Results.Text(tag ?? "Unknown");
+    }
+    catch
+    {
+        return Results.Text("v1.0.0");
+    }
+});
+
 app.Run();
 
 // Ensure the program returns 0 for success

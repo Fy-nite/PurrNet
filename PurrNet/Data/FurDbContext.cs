@@ -11,6 +11,7 @@ namespace Purrnet.Data
         public DbSet<Category> Categories { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<AdminActivityEntity> AdminActivities { get; set; }
+        public DbSet<PackageReview> PackageReviews { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -47,6 +48,11 @@ namespace Purrnet.Data
                         v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
 
                 entity.Property(e => e.Dependencies)
+                    .HasConversion(
+                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                        v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
+
+                entity.Property(e => e.VersionHistory)
                     .HasConversion(
                         v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
                         v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>());
@@ -90,6 +96,31 @@ namespace Purrnet.Data
                 entity.Property(e => e.Username).HasMaxLength(100);
                 entity.Property(e => e.Email).HasMaxLength(255);
                 entity.Property(e => e.AvatarUrl).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<PackageReview>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.PackageId);
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.CreatedAt);
+                // One review per user per package
+                entity.HasIndex(e => new { e.PackageId, e.UserId }).IsUnique();
+
+                entity.Property(e => e.Title).HasMaxLength(200);
+                entity.Property(e => e.Body).HasMaxLength(2000);
+                entity.Property(e => e.ReviewerName).HasMaxLength(100);
+                entity.Property(e => e.ReviewerAvatarUrl).HasMaxLength(500);
+
+                entity.HasOne(e => e.Package)
+                    .WithMany(p => p.Reviews)
+                    .HasForeignKey(e => e.PackageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                    .WithMany(u => u.Reviews)
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<AdminActivityEntity>(entity =>

@@ -1,70 +1,153 @@
 ﻿@page
 @model purrnet.Pages.DownloadModel
 @{
-    ViewData["Title"] = "Download";
+    ViewData["Title"] = "Install";
     Layout = "_Layout";
-    ViewData["Description"] = "Download the latest version of Purr package manager for your platform.";
-    ViewData["Keywords"] = "Purr, download, package manager, Windows, macOS, Linux";
+    ViewData["Description"] = "Install Purr using the hosted installer scripts (recommended).";
+    ViewData["Keywords"] = "Purr, install, installer, script, PowerShell, shell";
 }
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Add download links dynamically
-        document.querySelectorAll('[name="windows-download"]').forEach(function(el) {
-                el.href = (window.Purr.pathBase || '') + '/downloads/purr-windows-latest.exe';
+        const basePath = (window.Purr && window.Purr.pathBase) ? window.Purr.pathBase : '';
+        const origin = (window.location && window.location.origin) ? window.location.origin.replace(/\/$/, '') : '';
+
+        // Hosted installer scripts (recommended install method) - use full origin so commands work from previews
+        const psUrl = origin + basePath + '/install.ps1';
+        const shUrl = origin + basePath + '/install.sh';
+
+        // Fill code blocks for CLI install examples
+        const psCmd = `Invoke-RestMethod -Uri ${psUrl} | Invoke-Expression`;
+        const curlCmd = `curl -sL ${shUrl} | sh`;
+        const wgetCmd = `wget -qO- ${shUrl} | sh`;
+
+        document.querySelectorAll('[data-install="ps"]').forEach(el => el.textContent = psCmd);
+        document.querySelectorAll('[data-install="curl"]').forEach(el => el.textContent = curlCmd);
+        document.querySelectorAll('[data-install="wget"]').forEach(el => el.textContent = wgetCmd);
+
+        // Preload raw script previews (populate hidden pre blocks)
+        fetch(psUrl).then(r => r.ok ? r.text() : Promise.reject(r.status)).then(text => {
+            document.querySelectorAll('[data-raw="ps"]').forEach(el => el.textContent = text);
+        }).catch(() => {
+            document.querySelectorAll('[data-raw="ps"]').forEach(el => el.textContent = 'Could not load script preview.');
+        });
+
+        fetch(shUrl).then(r => r.ok ? r.text() : Promise.reject(r.status)).then(text => {
+            document.querySelectorAll('[data-raw="sh"]').forEach(el => el.textContent = text);
+        }).catch(() => {
+            document.querySelectorAll('[data-raw="sh"]').forEach(el => el.textContent = 'Could not load script preview.');
+        });
+
+        // Wire copy buttons
+        document.querySelectorAll('[data-copy-btn]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const target = this.getAttribute('data-copy-target');
+                const el = document.querySelector(target);
+                if (!el) return;
+                navigator.clipboard.writeText(el.textContent).then(() => {
+                    const prev = this.innerHTML;
+                    this.innerHTML = '<i class="bi bi-check"></i> Copied';
+                    setTimeout(() => this.innerHTML = prev, 1600);
+                }).catch(() => {
+                    alert('Could not copy to clipboard');
+                });
             });
-            document.querySelectorAll('[name="macOS-download"]').forEach(function(el) {
-                el.href = (window.Purr.pathBase || '') + '/downloads/purr-macos-latest.pkg';
+        });
+
+        // Toggle raw preview buttons
+        document.querySelectorAll('[data-toggle-raw]').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = this.getAttribute('data-raw-target');
+                const el = document.querySelector(target);
+                if (!el) return;
+                el.classList.toggle('d-none');
+                if (!el.classList.contains('d-none')) this.innerText = 'Hide script'; else this.innerText = 'View raw script';
             });
-            document.querySelectorAll('[name="linux-download"]').forEach(function(el) {
-                el.href = (window.Purr.pathBase || '') + '/downloads/purr-linux-latest.tar.gz';
-            });
+        });
     });
 </script>
 <div class="hero-section text-center py-5 mb-5 rounded-4 position-relative overflow-hidden">
     <div class="container">
         <h1 class="display-3 fw-bold mb-3">
             <span class="bg-white bg-opacity-10 rounded-4 px-4 py-2 d-inline-block shadow-sm">
-                <i class="bi bi-download text-primary"></i> Download Purr
+                <i class="bi bi-terminal text-primary"></i> Install Purr
             </span>
         </h1>
-        <p class="lead mb-4">Get the latest version of the Purr package manager for your platform.</p>
+        <p class="lead mb-4">The recommended installation method is via the hosted installer scripts below.</p>
     </div>
 </div>
 
 <div class="container mb-5">
-    <div class="row justify-content-center mb-4">
-        <div class="col-md-4 mb-3">
-            <div class="card h-100 text-center">
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow rounded-4 mb-4">
                 <div class="card-body">
-                    <h5 class="card-title mb-3">Universal Installer</h5>
-                    <p class="card-text">Download the latest Purr multiplatform installer for Windows, macOS, and Linux.</p>
-                    <a href="https://downloads.finite.ovh/purinstaller.dll" class="btn btn-success w-100" name="universal-download">
-                        <i class="bi bi-download"></i> Download Installer
-                    </a>
+                    <h4 class="card-title mb-3"><i class="bi bi-shield-lock"></i> Quick Install (recommended)</h4>
+                    <p>Run one of the commands below to download and run the official installer script hosted on this site. Review the script before running it; see the raw script link to inspect the contents.</p>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-powershell me-1"></i> PowerShell (Windows)</span>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-secondary" data-copy-btn data-copy-target="#psCmd"><i class="bi bi-clipboard"></i> Copy</button>
+                                        <button class="btn btn-sm btn-outline-primary ms-1" data-toggle-raw data-raw-target="#psRaw">View raw script</button>
+                                    </div>
+                                </div>
+                                <div class="card-body p-2">
+                                    <pre class="mb-0"><code id="psCmd" data-install="ps">Loading…</code></pre>
+                                    <pre id="psRaw" class="mt-2 mb-0 d-none" style="white-space: pre-wrap; word-break: break-word;"><code data-raw="ps">Loading…</code></pre>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-terminal me-1"></i> Shell (macOS / Linux)</span>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-secondary" data-copy-btn data-copy-target="#curlCmd"><i class="bi bi-clipboard"></i> Copy curl</button>
+                                        <button class="btn btn-sm btn-outline-secondary ms-1" data-copy-btn data-copy-target="#wgetCmd"><i class="bi bi-clipboard"></i> Copy wget</button>
+                                        <button class="btn btn-sm btn-outline-primary ms-1" data-toggle-raw data-raw-target="#shRaw">View raw script</button>
+                                        <a class="ms-2" href="/install.sh" target="_blank" title="Open raw script in new tab"><i class="bi bi-box-arrow-up-right"></i></a>
+                                    </div>
+                                </div>
+                                <div class="card-body p-2">
+                                    <pre class="mb-1"><code id="curlCmd" data-install="curl">Loading…</code></pre>
+                                    <pre class="mb-0"><code id="wgetCmd" data-install="wget">Loading…</code></pre>
+                                    <pre id="shRaw" class="mt-2 mb-0 d-none" style="white-space: pre-wrap; word-break: break-word;"><code data-raw="sh">Loading…</code></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <strong>Security note:</strong> Piping remote scripts into a shell runs code from the network. Inspect the script first via the "View raw script" links, or download it and run locally. If you prefer prebuilt binaries, see the <a asp-page="/About" class="text-primary">About</a> page for release information.
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow rounded-4 mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-2"><i class="bi bi-info-circle"></i> Advanced / Manual</h5>
+                    <p>For advanced users who need platform-specific installers or offline packages, we publish artifacts in the releases. You can also use package managers that support binary distribution. See the <a asp-page="/Documentation/HowToInstall" class="text-primary">installation documentation</a> for more options.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card sticky-top border-0 shadow rounded-4 mb-4">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-gear"></i> Install Helpers</h5>
+                    <p class="mb-2">Need guidance?</p>
+                    <ul class="list-unstyled mb-0">
+                        <li><a asp-page="/Documentation/HowToInstall" class="text-decoration-none">Installation docs</a></li>
+                        <li><a href="/install.sh" target="_blank" class="text-decoration-none">Preview shell script</a></li>
+                        <li><a href="/install.ps1" target="_blank" class="text-decoration-none">Preview PowerShell script</a></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>
-
-    <div class="card border-0 shadow rounded-4 mb-4">
-        <div class="card-body">
-            <h4 class="card-title mb-3"><i class="bi bi-terminal"></i> Install via CLI</h4>
-            <p>If downloading a installer doesnt work for you, you can also install Purr using the command line:</p>
-            <p>Open a PowerShell terminal (version 5.1 or later) and from the PS C:\> prompt, run:</p>
-            <pre><code>Invoke-RestMethod -Uri https://purr.finite.ovh/install.ps1 | Invoke-Expression </code></pre>
-            <p class="mb-0">Or see the <a asp-page="/Documentation/HowToInstall" class="text-primary">documentation</a> for advanced installation options.</p>
-        </div>
-    </div>
-
-    <!-- Optional: Checksums or release notes -->
-    <!--
-    <div class="card border-0 shadow rounded-4 mb-4">
-        <div class="card-body">
-            <h5 class="card-title mb-3"><i class="bi bi-file-earmark-text"></i> Release Notes & Checksums</h5>
-            <ul>
-                <li><a href="#">Release Notes (v1.0.0)</a></li>
-                <li><code>SHA256: ...</code></li>
-            </ul>
-        </div>
-    </div>
-    -->
 </div>
