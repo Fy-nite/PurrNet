@@ -1,0 +1,116 @@
+@page
+@model Purrnet.Pages.Account.ManagePackagesModel
+@{
+    ViewData["Title"] = "Manage My Packages";
+    Layout = "_Layout";
+}
+
+<div class="packages-fullpage py-4">
+    <div class="d-flex align-items-center gap-2 mb-3 px-3">
+        <a asp-page="/Account/Profile" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Profile
+        </a>
+        <h1 class="mb-0"><i class="bi bi-box-seam"></i> Manage My Packages</h1>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.Message))
+    {
+        <div class="alert @(Model.IsSuccess ? "alert-success" : "alert-danger")" role="alert">
+            @Model.Message
+        </div>
+    }
+
+    @if (Model.OwnedPackages.Any())
+    {
+        <div class="px-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="fw-500"><i class="bi bi-list-ul me-1"></i> Your Packages (@Model.OwnedPackages.Count)</span>
+                <a asp-page="/Packages/Submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus-circle me-1"></i> Submit New
+                </a>
+            </div>
+            <div class="table-responsive packages-table">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Package</th>
+                            <th>Version</th>
+                            <th>Status</th>
+                            <th>Downloads</th>
+                            <th>Views</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var pkg in Model.OwnedPackages)
+                        {
+                            <tr>
+                                <td>
+                                    <div>
+                                        <strong>
+                                            <a asp-page="/Packages/Details" asp-route-name="@pkg.Name">@pkg.Name</a>
+                                        </strong>
+                                        @if (!string.IsNullOrEmpty(pkg.Description))
+                                        {
+                                            <br /><small class="text-muted">@(pkg.Description.Length > 60 ? pkg.Description.Substring(0, 60) + "…" : pkg.Description)</small>
+                                        }
+                                    </div>
+                                </td>
+                                <td><code>@pkg.Version</code></td>
+                                <td>
+                                    <span class="badge @(pkg.IsActive ? "bg-success" : "bg-secondary")">
+                                        @(pkg.IsActive ? "Active" : "Inactive")
+                                    </span>
+                                    @if (pkg.ApprovalStatus == "Pending")
+                                    {
+                                        <span class="badge bg-warning ms-1">Pending review</span>
+                                    }
+                                </td>
+                                <td>@pkg.Downloads.ToString("N0")</td>
+                                <td>@pkg.ViewCount.ToString("N0")</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a asp-page="/Account/EditPackage" asp-route-id="@pkg.Id"
+                                           class="btn btn-outline-primary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <form method="post" asp-page-handler="Toggle" style="display:inline;">
+                                            <input type="hidden" name="id" value="@pkg.Id" />
+                                            <button type="submit"
+                                                    class="btn btn-outline-warning"
+                                                    title="@(pkg.IsActive ? "Deactivate" : "Activate")"
+                                                    onclick="return confirm('Are you sure you want to @(pkg.IsActive ? "deactivate" : "activate") this package?')">
+                                                <i class="bi bi-toggle-@(pkg.IsActive ? "on" : "off")"></i>
+                                            </button>
+                                        </form>
+                                        <form method="post" asp-page-handler="Delete" style="display:inline;">
+                                            <input type="hidden" name="id" value="@pkg.Id" />
+                                            <button type="submit"
+                                                    class="btn btn-outline-danger"
+                                                    title="Delete"
+                                                    onclick="return confirm('Delete @pkg.Name? This cannot be undone.')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    }
+    else
+    {
+        <div class="text-center py-5">
+            <i class="bi bi-inbox display-1 text-muted"></i>
+            <h4 class="mt-3">No packages yet</h4>
+            <p class="text-muted">You haven't submitted any packages.</p>
+            <a asp-page="/Packages/Submit" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> Submit Your First Package
+            </a>
+        </div>
+    }
+</div>

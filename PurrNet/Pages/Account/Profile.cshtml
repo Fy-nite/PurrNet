@@ -46,11 +46,17 @@
                             @foreach (var package in Model.OwnedPackages)
                             {
                                 <div class="list-group-item">
-                                    <div class="d-flex w-100 justify-content-between">
+                                    <div class="d-flex w-100 justify-content-between align-items-start">
                                         <h5 class="mb-1">
                                             <a asp-page="/Packages/Details" asp-route-name="@package.Name">@package.Name</a>
                                         </h5>
-                                        <small>v @package.Version</small>
+                                            <div class="d-flex align-items-center gap-2">
+                                            <small>v@(package.Version)</small>
+                                            <a asp-page="/Account/EditPackage" asp-route-id="@package.Id"
+                                               class="btn btn-outline-primary btn-sm" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                        </div>
                                     </div>
                                     <p class="mb-1">@package.Description</p>
                                     <small>
@@ -65,6 +71,14 @@
                     {
                         <p class="text-muted">You haven't submitted any packages yet.</p>
                         <a asp-page="/Packages/Submit" class="btn btn-primary">Submit Your First Package</a>
+                    }
+                    @if (Model.OwnedPackages.Any())
+                    {
+                        <div class="mt-3">
+                            <a asp-page="/Account/ManagePackages" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-gear me-1"></i> Manage All My Packages
+                            </a>
+                        </div>
                     }
                 </div>
 
@@ -122,6 +136,9 @@
             <div class="card-body">
                 <a asp-page="/Packages/Submit" class="btn btn-primary btn-block mb-2">
                     <i class="bi bi-plus-circle"></i> Submit New Package
+                </a>
+                <a asp-page="/Account/ManagePackages" class="btn btn-outline-primary btn-block mb-2">
+                    <i class="bi bi-box-seam"></i> Manage My Packages
                 </a>
                 <a asp-page="/Packages/Browse" class="btn btn-outline-secondary btn-block">
                     <i class="bi bi-search"></i> Browse Packages

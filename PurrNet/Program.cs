@@ -278,7 +278,13 @@ if (!app.Environment.IsDevelopment())
 
 // Comment out this line temporarily for HTTP testing
 // app.UseHttpsRedirection();
-app.UseStaticFiles();
+var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+contentTypeProvider.Mappings[".ps1"] = "text/plain";
+contentTypeProvider.Mappings[".sh"] = "text/plain";
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = contentTypeProvider
+});
 
 
 
@@ -304,11 +310,11 @@ app.MapGet("/Latest", async () =>
         var response = await httpClient.GetStringAsync("https://api.github.com/repos/Fy-nite/Purr/releases/latest");
         using var doc = System.Text.Json.JsonDocument.Parse(response);
         var tag = doc.RootElement.GetProperty("tag_name").GetString();
-        return Results.Text(tag ?? "Unknown");
+        return Results.Text(tag?.TrimStart('v') ?? "Unknown");
     }
     catch
     {
-        return Results.Text("v1.0.0");
+        return Results.Text("1.0.0");
     }
 });
 

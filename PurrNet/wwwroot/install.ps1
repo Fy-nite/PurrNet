@@ -1,7 +1,6 @@
 $PurrApiUrl = 'https://purr.finite.ovh/Latest'
 $RepoOwner = 'finite'
-$RepoName = 'PurrNet'
-$TargetDir = Join-Path $env:USERPROFILE '.purr'
+$RepoName = 'purr'
 
 function Assert-Command {
     param([string]$Name)
@@ -21,34 +20,20 @@ function Get-LatestVersion {
     }
 }
 
-function Download-And-Build {
+function Download-And-Install {
     param([string]$Version)
     $tmp = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ([Guid]::NewGuid().ToString()))
     try {
-        $zipUrl = "https://github.com/$RepoOwner/$RepoName/archive/refs/tags/$Version.zip"
-        $zipPath = Join-Path $tmp.FullName "$Version.zip"
-        Write-Host "Downloading $zipUrl"
-        Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing
+        $packageFile = "$RepoName.$Version.nupkg"
+        $pkgUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/$Version/$packageFile"
+        $pkgPath = Join-Path $tmp.FullName $packageFile
+        Write-Host "Downloading $pkgUrl"
+        Invoke-WebRequest -Uri $pkgUrl -OutFile $pkgPath -UseBasicParsing -ErrorAction Stop
 
-        Write-Host "Extracting..."
-        Expand-Archive -Path $zipPath -DestinationPath $tmp.FullName
+        Write-Host "Installing global tool from nupkg..."
+        dotnet tool install --global $RepoName --version $Version --add-source $tmp.FullName | Write-Host
 
-        $extracted = Get-ChildItem -Path $tmp.FullName -Directory | Where-Object { $_.Name -like "$RepoName-*" } | Select-Object -First 1
-        if (-not $extracted) { throw 'Extracted folder not found' }
-
-        $csproj = Get-ChildItem -Path $extracted.FullName -Recurse -Filter *.csproj | Select-Object -First 1
-        if (-not $csproj) { throw '.csproj not found' }
-
-        Write-Host "Building $($csproj.FullName)"
-        dotnet build $csproj.FullName -c Release | Write-Host
-
-        $dll = Get-ChildItem -Path $extracted.FullName -Recurse -Filter 'purr*.dll' | Where-Object { $_.FullName -match '\\bin\\Release\\' } | Select-Object -First 1
-        if (-not $dll) { throw 'Built artifact not found' }
-
-        if (-not (Test-Path $TargetDir)) { New-Item -ItemType Directory -Path $TargetDir | Out-Null }
-        Copy-Item -Path $dll.FullName -Destination $TargetDir -Force
-        Write-Host "Installed to $TargetDir\$(Split-Path $dll.FullName -Leaf)"
-        Write-Host "Run with: dotnet $TargetDir\$(Split-Path $dll.FullName -Leaf)"
+        Write-Host "Tool installed. Run with: $RepoName (global tool)"
     }
     finally {
         Remove-Item -Recurse -Force $tmp.FullName
@@ -57,20 +42,18 @@ function Download-And-Build {
 
 function Install-Purr {
     Assert-Command dotnet
-    Assert-Command Expand-Archive
+    Assert-Command Invoke-WebRequest
     $latest = Get-LatestVersion
     if (-not $latest) { return }
     $latest = $latest.Trim()
     Write-Host "Latest version: $latest"
-    Download-And-Build -Version $latest
+    Download-And-Install -Version $latest
 }
 
 function Uninstall-Purr {
-    if (Test-Path $TargetDir) {
-        Get-ChildItem -Path $TargetDir -Filter 'purr*.dll' -File | Remove-Item -Force
-        Write-Host "Purr removed from $TargetDir"
-    }
-    else { Write-Host "Nothing to remove at $TargetDir" }
+    Assert-Command dotnet
+    Write-Host "Uninstalling global tool '$RepoName'..."
+    dotnet tool uninstall --global $RepoName | Write-Host
 }
 
 function Update-Purr {

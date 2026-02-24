@@ -157,7 +157,7 @@
                                                     <br><small class="text-muted">by @string.Join(", ", pkg.Authors)</small>
                                                 }
                                             </td>
-                                            <td><span class="badge bg-light text-dark">v@pkg.Version</span></td>
+                                                <td><span class="badge bg-light text-dark">v@(pkg.Version)</span></td>
                                             <td><small class="text-muted">@pkg.CreatedAt.ToString("MMM dd, yyyy")</small></td>
                                         </tr>
                                     }
@@ -219,7 +219,7 @@
                                                     <br><small class="text-muted">@(pkg.Description.Length > 60 ? pkg.Description[..60] + "…" : pkg.Description)</small>
                                                 }
                                             </td>
-                                            <td><span class="badge bg-light text-dark">v@pkg.Version</span></td>
+                                                <td><span class="badge bg-light text-dark">v@(pkg.Version)</span></td>
                                             <td>
                                                 @foreach (var cat in pkg.Categories.Take(3))
                                                 {

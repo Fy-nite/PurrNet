@@ -112,8 +112,8 @@ namespace Purrnet.Controllers.Api
                 if (package == null)
                     return NotFound($"Package '{packageName}' not found");
 
-                // Increment view count
-                await _packageService.IncrementViewCountAsync(package.Id);
+                // Increment view count in the background so it doesn't delay the response
+                _ = _packageService.IncrementViewCountAsync(package.Id);
 
                 var PurrConfig = new PurrConfig
                 {

@@ -1,6 +1,7 @@
 PURR_API_URL="https://purr.finite.ovh/Latest"
 REPO_OWNER="finite"
-REPO_NAME="PurrNet"
+# package / tool id (adjust if your published package uses a different id)
+REPO_NAME="purr"
 TARGET_DIR="$HOME/.purr"
 
 check_cmd() {
@@ -18,58 +19,55 @@ get_latest_version() {
   fi
 }
 
-download_and_build() {
+download_and_install() {
   local version="$1"
   local tmpdir
   tmpdir=$(mktemp -d)
   trap 'rm -rf "$tmpdir"' EXIT
 
-  local zipurl="https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/tags/purr-${version}.zip"
-  local zipfile="$tmpdir/${version}.zip"
+  # Try common nupkg asset name patterns
+  local pkgfile1="${REPO_NAME}.${version}.nupkg"
+  local pkgfile2="${REPO_NAME}-v${version}.nupkg"
+  local pkgfile3="${REPO_NAME}.v${version}.nupkg"
+  local tried=""
+  local pkgurl
+  local pkgpath
 
-  echo "Downloading ${zipurl} ..."
-  if command -v curl >/dev/null 2>&1; then
-    curl -L -f -o "$zipfile" "$zipurl"
-  else
-    wget -O "$zipfile" "$zipurl"
-  fi
+  for pkg in "$pkgfile1" "$pkgfile2" "$pkgfile3"; do
+    pkgurl="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${version}/${pkg}"
+    pkgpath="$tmpdir/$pkg"
+    echo "Attempting to download ${pkgurl} ..."
+    if command -v curl >/dev/null 2>&1; then
+      if curl -L -f -o "$pkgpath" "$pkgurl" 2>/dev/null; then
+        echo "Downloaded $pkg"
+        break
+      fi
+    else
+      if wget -q -O "$pkgpath" "$pkgurl" 2>/dev/null; then
+        echo "Downloaded $pkg"
+        break
+      fi
+    fi
+    tried+="$pkg "
+  done
 
-  echo "Extracting..."
-  unzip -q "$zipfile" -d "$tmpdir"
-
-  local extracted
-  extracted=$(find "$tmpdir" -maxdepth 1 -type d -name "*${REPO_NAME}-*" | head -n1)
-  if [[ -z "$extracted" ]]; then
-    echo "Could not find extracted source folder." >&2
+  if [[ ! -f "$pkgpath" ]]; then
+    echo "Failed to download any nupkg (tried: $tried)" >&2
     return 1
   fi
 
-  local csproj
-  csproj=$(find "$extracted" -type f -name "*.csproj" | head -n1)
-  if [[ -z "$csproj" ]]; then
-    echo "No .csproj found in source." >&2
+  echo "Installing global tool from local nupkg source..."
+  # Use the temporary directory as a local package source
+  if ! dotnet tool install --global "$REPO_NAME" --version "$version" --add-source "$tmpdir"; then
+    echo "dotnet tool install failed. Ensure the package id/version match and that you're allowed to install global tools." >&2
     return 1
   fi
 
-  echo "Building project: $csproj"
-  dotnet build "$csproj" -c Release
-
-  local dllpath
-  dllpath=$(find "$extracted" -type f -name "purr*.dll" -path "*/bin/Release/*" | head -n1)
-  if [[ -z "$dllpath" ]]; then
-    echo "Built artifact not found." >&2
-    return 1
-  fi
-
-  mkdir -p "$TARGET_DIR"
-  cp -f "$dllpath" "$TARGET_DIR/"
-  echo "Installed to $TARGET_DIR/$(basename "$dllpath")"
-  echo "Add $TARGET_DIR to your PATH or run with 'dotnet $TARGET_DIR/$(basename "$dllpath")'"
+  echo "Tool installed (global). You can run: $REPO_NAME"
 }
 
 install() {
   check_cmd dotnet
-  check_cmd unzip
   if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
     echo "curl or wget required to download releases." >&2
     exit 1
@@ -79,16 +77,16 @@ install() {
   latest=$(get_latest_version) || exit 1
   latest=$(echo "$latest" | tr -d '\r\n' )
   echo "Latest version: $latest"
-  download_and_build "$latest"
+  download_and_install "$latest"
 }
 
 uninstall() {
-  if [[ -d "$TARGET_DIR" ]]; then
-    echo "Removing purr artifacts from $TARGET_DIR"
-    rm -f "$TARGET_DIR"/purr*.dll || true
-    echo "Uninstalled.";
+  check_cmd dotnet
+  echo "Uninstalling global tool '$REPO_NAME'..."
+  if dotnet tool uninstall --global "$REPO_NAME"; then
+    echo "Uninstalled global tool: $REPO_NAME"
   else
-    echo "Nothing to remove at $TARGET_DIR"
+    echo "Failed to uninstall or tool not present."
   fi
 }
 

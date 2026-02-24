@@ -230,3 +230,35 @@ a:focus, button:focus, .form-control:focus { outline: 2px solid rgba(0,120,215,0
       padding-left: 0.5rem;
     }
   }
+
+  /* Full-page packages list styles */
+  .packages-fullpage {
+    position: fixed;
+    left: 0;
+    right: 0;
+    /* leave room for header and footer; these values are conservative */
+    top: 70px;
+    bottom: 70px;
+    overflow: auto;
+    background: transparent;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .packages-fullpage .fw-500 { font-weight: 500; }
+
+  .packages-table {
+    background: transparent;
+    border-radius: 0;
+  }
+
+  .packages-table .table {
+    margin-bottom: 0;
+    background: transparent;
+  }
+
+  .packages-table .table tr:hover {
+    background: rgba(0,0,0,0.03);
+  }
+
+  /* Make sure the table stretches to available width */
+  .packages-table .table td, .packages-table .table th { vertical-align: middle; }

@@ -8,7 +8,7 @@
     <!-- <PublishAot>true</PublishAot> -->
     <InvariantGlobalization>true</InvariantGlobalization>
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>fur</ToolCommandName>
+    <ToolCommandName>purr</ToolCommandName>
   </PropertyGroup>
 
   <ItemGroup>
