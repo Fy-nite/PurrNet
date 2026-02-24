@@ -196,7 +196,7 @@ namespace Purrnet.Commands
         private static string GetConnectionString()
         {
             // Try to get from environment variable first, then fallback to default
-            return Environment.GetEnvironmentVariable("CONNECTION_STRING") ?? "Data Source=Purrnet.db";
+            return Environment.GetEnvironmentVariable("CONNECTION_STRING") ?? "Data Source=../Purrnet.db";
         }
 
         private static int ShowHelp()

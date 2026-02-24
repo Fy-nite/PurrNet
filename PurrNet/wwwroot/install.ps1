@@ -1,6 +1,4 @@
-param()
-
-$PurrApiUrl = 'https://purrnet.finite.ovh/Latest'
+$PurrApiUrl = 'https://purr.finite.ovh/Latest'
 $RepoOwner = 'finite'
 $RepoName = 'PurrNet'
 $TargetDir = Join-Path $env:USERPROFILE '.purr'

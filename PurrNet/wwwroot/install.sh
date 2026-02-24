@@ -1,7 +1,4 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-PURR_API_URL="https://purrnet.finite.ovh/Latest"
+PURR_API_URL="https://purr.finite.ovh/Latest"
 REPO_OWNER="finite"
 REPO_NAME="PurrNet"
 TARGET_DIR="$HOME/.purr"
@@ -27,7 +24,7 @@ download_and_build() {
   tmpdir=$(mktemp -d)
   trap 'rm -rf "$tmpdir"' EXIT
 
-  local zipurl="https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/tags/${version}.zip"
+  local zipurl="https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/tags/purr-${version}.zip"
   local zipfile="$tmpdir/${version}.zip"
 
   echo "Downloading ${zipurl} ..."
