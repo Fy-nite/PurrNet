@@ -1,0 +1,21 @@
+@page
+@{
+    ViewData["Title"] = "Installer Scripts & PATH";
+}
+
+<h1>Installer Scripts &amp; PATH Setup</h1>
+
+<h3>Installer script behavior</h3>
+<ul>
+    <li><code>purr</code> detects script type by extension and runs with the appropriate interpreter (e.g. <code>.sh</code> → <code>bash</code>, <code>.ps1</code> → <code>pwsh -File</code>). If no extension, <code>purr</code> reads the shebang or falls back to <code>bash</code> on Unix.</li>
+    <li>Output from installer scripts is streamed to the terminal; a non-zero exit code aborts the installation.</li>
+    <li>For uninstall, <code>purr</code> looks for an <em>uninstall</em> variant of the installer (e.g. <code>install.sh</code> → <code>uninstall.sh</code>) and runs it if present, then removes the package clone.</li>
+</ul>
+
+<h3>PATH setup for release-asset-installed binaries</h3>
+<ul>
+    <li>Unix (Bash/Zsh): <code>~/.purr/bin</code> — add with: <pre><code>export PATH="$HOME/.purr/bin:$PATH"</code></pre></li>
+    <li>Persist in <code>~/.bashrc</code> / <code>~/.zshrc</code> by echoing the export line and sourcing the file.</li>
+    <li>Fish: use <code>set -U fish_user_paths $HOME/.purr/bin $fish_user_paths</code>.</li>
+    <li>PowerShell: add <code>%USERPROFILE%\.purr\bin</code> to <code>PATH</code> for session or persist via <code>setx</code>.</li>
+</ul>

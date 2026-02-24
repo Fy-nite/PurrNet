@@ -1,0 +1,21 @@
+@page
+@{
+    ViewData["Title"] = "Commands Reference";
+}
+
+<h1>Commands Reference (summary)</h1>
+
+<ul>
+    <li><strong>purr install &lt;package&gt;[@@&lt;version&gt;]</strong> — Install or upgrade a package.</li>
+    <li><strong>purr uninstall &lt;package&gt;</strong> — Remove a script-installed package (runs uninstall script if present).</li>
+    <li><strong>purr update &lt;package&gt;</strong> — Pull latest changes for an installed script-based package.</li>
+    <li><strong>purr upgrade &lt;package&gt;[@@&lt;version&gt;]</strong> — Upgrade a package (aliases to install flow).</li>
+    <li><strong>purr downgrade &lt;package&gt;@@&lt;version&gt;</strong> — Install an older version (version required).</li>
+    <li><strong>purr versions &lt;package&gt;</strong> — List available versions for a package.</li>
+    <li><strong>purr search &lt;query&gt;</strong> — Search package names and descriptions across repositories.</li>
+    <li><strong>purr list [--sort &lt;method&gt;] [--category &lt;name&gt;]</strong> — List packages with optional sorting and filtering.</li>
+    <li><strong>purr info &lt;package&gt; [--version &lt;version&gt;]</strong> — Show package metadata.</li>
+    <li><strong>purr stats</strong> — Show registry statistics.</li>
+</ul>
+
+<p>See the <code>purr</code> CLI help for full details and available flags.</p>

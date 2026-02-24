@@ -141,6 +141,48 @@ namespace Purrnet.Services
             }
         }
 
+        public async Task<bool> BanUserAsync(int userId)
+        {
+            try
+            {
+                var user = await _context.Users.FindAsync(userId);
+                if (user != null)
+                {
+                    user.IsBanned = true;
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("User {Username} (ID {UserId}) banned", user.Username, userId);
+                    return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error banning user {UserId}", userId);
+                return false;
+            }
+        }
+
+        public async Task<bool> UnbanUserAsync(int userId)
+        {
+            try
+            {
+                var user = await _context.Users.FindAsync(userId);
+                if (user != null)
+                {
+                    user.IsBanned = false;
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("User {Username} (ID {UserId}) unbanned", user.Username, userId);
+                    return true;
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error unbanning user {UserId}", userId);
+                return false;
+            }
+        }
+
         public async Task<User?> GetUserByUsernameAsync(string username)
         {
             try

@@ -1,7 +1,7 @@
 PURR_API_URL="https://purr.finite.ovh/Latest"
-REPO_OWNER="finite"
+REPO_OWNER="fy-nite"
 # package / tool id (adjust if your published package uses a different id)
-REPO_NAME="purr"
+REPO_NAME="PurrNet"
 TARGET_DIR="$HOME/.purr"
 
 check_cmd() {
@@ -27,14 +27,14 @@ download_and_install() {
 
   # Try common nupkg asset name patterns
   local pkgfile1="${REPO_NAME}.${version}.nupkg"
-  local pkgfile2="${REPO_NAME}-v${version}.nupkg"
+  local pkgfile2="purr.${version}.nupkg"
   local pkgfile3="${REPO_NAME}.v${version}.nupkg"
   local tried=""
   local pkgurl
   local pkgpath
-
+  # https://github.com/Fy-nite/PurrNet/releases/download/v1.0.0/purr.1.0.0.nupkg
   for pkg in "$pkgfile1" "$pkgfile2" "$pkgfile3"; do
-    pkgurl="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${version}/${pkg}"
+    pkgurl="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/v${version}/${pkg}"
     pkgpath="$tmpdir/$pkg"
     echo "Attempting to download ${pkgurl} ..."
     if command -v curl >/dev/null 2>&1; then
@@ -58,12 +58,12 @@ download_and_install() {
 
   echo "Installing global tool from local nupkg source..."
   # Use the temporary directory as a local package source
-  if ! dotnet tool install --global "$REPO_NAME" --version "$version" --add-source "$tmpdir"; then
+  if ! dotnet tool install --global purr --version "$version" --add-source "$tmpdir" ; then
     echo "dotnet tool install failed. Ensure the package id/version match and that you're allowed to install global tools." >&2
     return 1
   fi
 
-  echo "Tool installed (global). You can run: $REPO_NAME"
+  echo "Tool installed (global). You can run: purr"
 }
 
 install() {
@@ -82,9 +82,9 @@ install() {
 
 uninstall() {
   check_cmd dotnet
-  echo "Uninstalling global tool '$REPO_NAME'..."
-  if dotnet tool uninstall --global "$REPO_NAME"; then
-    echo "Uninstalled global tool: $REPO_NAME"
+  echo "Uninstalling global tool 'purr'..."
+  if dotnet tool uninstall --global "purr"; then
+    echo "Uninstalled global tool: purr"
   else
     echo "Failed to uninstall or tool not present."
   fi

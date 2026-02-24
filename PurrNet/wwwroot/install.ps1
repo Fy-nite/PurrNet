@@ -1,6 +1,6 @@
 $PurrApiUrl = 'https://purr.finite.ovh/Latest'
 $RepoOwner = 'finite'
-$RepoName = 'purr'
+$RepoName = 'PurrNet'
 
 function Assert-Command {
     param([string]$Name)
@@ -25,13 +25,13 @@ function Download-And-Install {
     $tmp = New-Item -ItemType Directory -Path (Join-Path $env:TEMP ([Guid]::NewGuid().ToString()))
     try {
         $packageFile = "$RepoName.$Version.nupkg"
-        $pkgUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/$Version/$packageFile"
+        $pkgUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/v$Version/$packageFile"
         $pkgPath = Join-Path $tmp.FullName $packageFile
         Write-Host "Downloading $pkgUrl"
         Invoke-WebRequest -Uri $pkgUrl -OutFile $pkgPath -UseBasicParsing -ErrorAction Stop
 
         Write-Host "Installing global tool from nupkg..."
-        dotnet tool install --global $RepoName --version $Version --add-source $tmp.FullName | Write-Host
+        dotnet tool install --global $RepoName --add-source $tmp.FullName purr | Write-Host
 
         Write-Host "Tool installed. Run with: $RepoName (global tool)"
     }

@@ -46,5 +46,6 @@ namespace Purrnet.Services
 
         // Dependency tree
         Task<DependencyNode?> GetDependencyTreeAsync(string packageName, int maxDepth = 3);
+        Task<bool> MarkPackageOutdatedAsync(int packageId, bool outdated = true);
     }
 }

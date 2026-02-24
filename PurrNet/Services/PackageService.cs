@@ -399,6 +399,24 @@ namespace Purrnet.Services
             return response;
         }
 
+        public async Task<bool> MarkPackageOutdatedAsync(int packageId, bool outdated = true)
+        {
+            try
+            {
+                var pkg = await _context.Packages.FindAsync(packageId);
+                if (pkg == null) return false;
+                pkg.IsOutdated = outdated;
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Package {PackageName} (ID {PackageId}) outdated flag set to {Outdated}", pkg.Name, packageId, outdated);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error marking package {PackageId} outdated", packageId);
+                return false;
+            }
+        }
+
         public async Task<PackageStatistics> GetStatisticsAsync()
         {
             try

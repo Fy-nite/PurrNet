@@ -109,6 +109,7 @@
                                 <tr>
                                     <th>User</th>
                                     <th>Admin</th>
+                                    <th>Banned</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -136,6 +137,16 @@
                                             }
                                         </td>
                                         <td>
+                                            @if (user.IsBanned)
+                                            {
+                                                <span class="badge bg-danger">Banned</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-success">Active</span>
+                                            }
+                                        </td>
+                                        <td>
                                             @if (!user.IsAdmin)
                                             {
                                                 <form method="post" asp-page-handler="PromoteUser" class="d-inline">
@@ -154,6 +165,27 @@
                                                             onclick="return confirm('Are you sure you want to revoke admin privileges from @user.Username?')"
                                                             @(User.FindFirst("UserId")?.Value == user.Id.ToString() ? "disabled" : "")>
                                                         <i class="bi bi-arrow-down"></i> Revoke
+                                                    </button>
+                                                </form>
+                                            }
+
+                                            @if (!user.IsBanned)
+                                            {
+                                                <form method="post" asp-page-handler="BanUser" class="d-inline ms-1">
+                                                    <input type="hidden" name="userId" value="@user.Id" />
+                                                    <button type="submit" class="btn btn-danger btn-sm"
+                                                            onclick="return confirm('Ban @user.Username? This will prevent them from logging in.')">
+                                                        <i class="bi bi-person-x"></i> Ban
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <form method="post" asp-page-handler="UnbanUser" class="d-inline ms-1">
+                                                    <input type="hidden" name="userId" value="@user.Id" />
+                                                    <button type="submit" class="btn btn-success btn-sm"
+                                                            onclick="return confirm('Unban @user.Username?')">
+                                                        <i class="bi bi-person-check"></i> Unban
                                                     </button>
                                                 </form>
                                             }
@@ -181,6 +213,7 @@
                                     <th>Package</th>
                                     <th>Status</th>
                                     <th>Downloads</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -202,6 +235,18 @@
                                             }
                                         </td>
                                         <td>@package.Downloads.ToString("N0")</td>
+                                        <td>
+                                            @if (package.IsOutdated)
+                                            {
+                                                <span class="badge bg-warning">Outdated</span>
+                                            }
+                                            <form method="post" asp-page-handler="ReportOutdated" class="d-inline ms-1">
+                                                <input type="hidden" name="packageId" value="@package.Id" />
+                                                <button type="submit" class="btn btn-outline-warning btn-sm">
+                                                    <i class="bi bi-exclamation-octagon"></i> Report Outdated
+                                                </button>
+                                            </form>
+                                        </td>
                                     </tr>
                                 }
                             </tbody>

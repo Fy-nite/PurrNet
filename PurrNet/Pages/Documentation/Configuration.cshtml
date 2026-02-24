@@ -1,0 +1,29 @@
+@page
+@{
+    ViewData["Title"] = "Configuration & Manifests";
+}
+
+<h1>Configuration &amp; Package Manifests</h1>
+
+<p><code>purr</code> reads <code>fursettings.json</code> from the same directory as the <code>purr</code> executable. This file lists repository base URLs used to fetch package metadata.</p>
+
+<h3>Example <code>fursettings.json</code></h3>
+<pre><code>{
+  "repositories": [
+    "http://purr.finite.ovh",
+    "http://my-internal-registry:5001"
+  ]
+}
+</code></pre>
+
+<h3>Package manifest (<code>furconfig.json</code>) fields</h3>
+<ul>
+    <li><strong>name</strong> (required): unique package identifier</li>
+    <li><strong>version</strong> (required): semantic version or <code>latest</code></li>
+    <li><strong>git</strong> (required for script installs): HTTPS git repo URL</li>
+    <li><strong>installer</strong>: installer filename at repo root (e.g. <code>install.sh</code>)</li>
+    <li><strong>dependencies</strong>: array of package names to install first</li>
+    <li><strong>categories</strong>, <strong>description</strong>, <strong>authors</strong>, <strong>homepage</strong>, <strong>issue_tracker</strong> — optional metadata fields</li>
+</ul>
+
+<p>When <code>installer</code> is omitted, <code>purr</code> attempts a release-asset install via GitHub Releases for that package repository.</p>

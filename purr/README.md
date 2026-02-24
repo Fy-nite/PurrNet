@@ -1,230 +1,481 @@
-# FUR - Finite User Repository Package Manager
+# purr — Finite User Repository CLI
 
-FUR is a lightweight, cross-platform package manager designed for easy installation and management of software packages from git repositories.
+`purr` is a lightweight, cross-platform package manager that installs and manages software packages registered in a PurrNet repository. It resolves metadata from the registry API, downloads release assets or clones git repositories, runs installer scripts, and wires up binaries on your `PATH`.
 
-## Features
+---
 
-- 📦 **Package Installation**: Install packages directly from git repositories
-- 🔍 **Package Search**: Search for packages by name or description
-- 📋 **Package Listing**: Browse all available packages with sorting options
-- ℹ️ **Package Information**: Get detailed information about specific packages
-- 🔗 **Dependency Management**: Automatic dependency resolution and installation
-- 🛠️ **Custom Installers**: Support for package-specific installation scripts
+## Table of Contents
 
-## Installation
+1. [Prerequisites](#prerequisites)
+2. [Build from Source](#build-from-source)
+3. [How Package Installation Works](#how-package-installation-works)
+4. [Directory Layout](#directory-layout)
+5. [Commands Reference](#commands-reference)
+   - [install](#install)
+   - [uninstall](#uninstall)
+   - [update](#update)
+   - [upgrade](#upgrade)
+   - [downgrade](#downgrade)
+   - [versions](#versions)
+   - [search](#search)
+   - [list](#list)
+   - [info](#info)
+   - [stats](#stats)
+6. [Configuration: fursettings.json](#configuration-fursettingsjson)
+7. [Package Manifest: furconfig.json](#package-manifest-furconfigjson)
+8. [Installer Scripts](#installer-scripts)
+9. [PATH Setup](#path-setup)
+10. [API Integration](#api-integration)
+11. [Development](#development)
 
-### Prerequisites
+---
 
-- .NET 8.0 Runtime
-- Git (for cloning repositories)
-- sudo access (for running installer scripts on Unix systems)
+## Prerequisites
 
-### Build from Source
+| Requirement | Notes |
+|---|---|
+| .NET 8.0 Runtime | Required to run the CLI |
+| Git | Required for packages that use the clone-based install path |
+
+---
+
+## Build from Source
 
 ```bash
-git clone <fur-repository-url>
-cd fur
+git clone https://github.com/Fy-nite/PurrNet
+cd PurrNet/purr
 dotnet build --configuration Release
 ```
 
-## Usage
+The output binary lands in `bin/Release/net8.0/`.
 
-### Install a Package
-
-Install the latest version of a package:
+To run directly without installing:
 ```bash
-fur install package-name
+dotnet run -- <command> [arguments]
 ```
 
-Install a specific version:
-```bash
-fur install package-name@1.0.0
+---
+
+## How Package Installation Works
+
+When you run `purr install <package>`, the following steps happen:
+
+1. **Fetch metadata** — `purr` queries each configured repository API (in order) at  
+   `GET /api/v1/packages/<name>` (or `/<name>/<version>` for a pinned version) until it gets a `200 OK`.
+
+2. **Resolve dependencies** — Any packages listed in the `dependencies` field of the manifest are installed recursively first, in the same way.
+
+3. **Download & install** — The install strategy depends on whether the manifest has an `installer` field:
+
+   **A. Release asset install (no `installer` field)**  
+   - Queries the GitHub Releases API for the package's git repository.  
+   - Selects the most appropriate asset for the current OS (matching `windows`, `linux`, `mac`/`darwin` in the filename; falls back to the first asset).  
+   - Downloads the asset to a temporary directory.  
+   - If the asset is a `.zip`, it is extracted and the first executable found inside is used.  
+   - The binary is copied to `~/.purr/bin/<package-name>` (Linux/macOS) or `%USERPROFILE%\.purr\bin\<package-name>.exe` (Windows) and marked executable.  
+   - `purr` then checks whether `~/.purr/bin` is on your `PATH` and prints instructions if it is not (see [PATH Setup](#path-setup)).
+
+   **B. Script-based install (has `installer` field)**  
+   - If a local clone already exists at `~/.fur/packages/<name>/.git`, `purr` fetches and checks out the requested version.  
+   - If no clone exists, `purr` runs `git clone <git-url> ~/.fur/packages/<name>` and checks out the requested version.  
+   - The installer script (e.g. `install.sh`) is located at the root of the cloned repository and is executed.  
+   - A `furconfig.json` metadata snapshot is written alongside the clone.
+
+4. **Track download** — A `POST /api/v1/packages/<name>/download` request is sent to the registry to increment the download counter.
+
+---
+
+## Directory Layout
+
+```
+~/.purr/
+└── bin/                      # Binaries installed from release assets
+    └── <package-name>        # Executable (or .exe on Windows)
+
+~/.fur/
+└── packages/
+    └── <package-name>/       # One directory per script-installed package
+        ├── .git/             # Full git clone of the package's repository
+        ├── furconfig.json    # Metadata snapshot written at install time
+        └── <installer>       # e.g. install.sh / uninstall.sh
 ```
 
-### Search for Packages
-
-Search for packages by name or description:
-```bash
-fur search "web server"
+The `purr` CLI itself reads its own configuration from:
+```
+<purr-executable-directory>/
+└── fursettings.json          # Repository URLs (see Configuration section)
 ```
 
-### List All Packages
+---
 
-List all available packages:
-```bash
-fur list
+## Commands Reference
+
+### install
+
+Install a package, optionally pinning to a version.
+
+```
+purr install <package>[@<version>]
 ```
 
-List packages with sorting:
+| Argument | Description |
+|---|---|
+| `package` | Package name, optionally suffixed with `@<version>` |
+
+**Examples:**
 ```bash
-fur list --sort mostDownloads
-fur list --sort recentlyUpdated
+purr install neofetch
+purr install neofetch@2.0.0
 ```
 
-### Get Package Information
+---
 
-Get detailed information about a package:
-```bash
-fur info package-name
+### uninstall
+
+Remove an installed (script-based) package. If the package ships an uninstall script (`uninstall.sh` / equivalent), it is run first; then the clone directory is deleted.
+
+```
+purr uninstall <package>
 ```
 
-Get information about a specific version:
+| Argument | Description |
+|---|---|
+| `package` | Name of the installed package |
+
+**Example:**
 ```bash
-fur info package-name --version 1.0.0
+purr uninstall neofetch
 ```
 
-## Package Configuration
+> **Note:** Release-asset-installed binaries in `~/.purr/bin` are not currently removed by `uninstall`. Delete them manually if needed.
 
-Packages are configured using a `furconfig.json` file in the repository root:
+---
+
+### update
+
+Pull the latest changes for an already-installed package (equivalent to re-running install).
+
+```
+purr update <package>
+```
+
+| Argument | Description |
+|---|---|
+| `package` | Package name, optionally suffixed with `@<version>` |
+
+---
+
+### upgrade
+
+Upgrade a package to its latest version, or to a specific version. Functionally identical to `install` — it re-runs the full fetch-and-install flow.
+
+```
+purr upgrade <package>[@<version>]
+```
+
+---
+
+### downgrade
+
+Install an older specific version of a package. A version is required.
+
+```
+purr downgrade <package>@<version>
+```
+
+**Example:**
+```bash
+purr downgrade neofetch@1.8.0
+```
+
+Use `purr versions <package>` first to see what versions are available.
+
+---
+
+### versions
+
+List all versions of a package that the registry knows about. The latest version is highlighted.
+
+```
+purr versions <package>
+```
+
+**Example:**
+```bash
+purr versions neofetch
+```
+
+---
+
+### search
+
+Search for packages by name or description across all configured repositories.
+
+```
+purr search <query>
+```
+
+| Argument | Description |
+|---|---|
+| `query` | Free-text search string |
+
+**Example:**
+```bash
+purr search "system info"
+```
+
+---
+
+### list
+
+List all available packages. Optionally filter by category or change the sort order.
+
+```
+purr list [--sort <method>] [--category <name>]
+```
+
+| Option | Description |
+|---|---|
+| `--sort <method>` | Sort order (see table below) |
+| `--category <name>` | Filter to packages in a specific category |
+
+**Sort methods:**
+
+| Value | Description |
+|---|---|
+| `name` | Alphabetical (default) |
+| `mostDownloads` | Most downloaded |
+| `leastDownloads` | Least downloaded |
+| `recentlyUpdated` | Most recently updated |
+| `recentlyUploaded` | Most recently uploaded |
+| `oldestUpdated` | Longest since last update |
+| `oldestUploaded` | First ever uploaded |
+
+**Examples:**
+```bash
+purr list
+purr list --sort mostDownloads
+purr list --category utilities
+```
+
+---
+
+### info
+
+Show detailed metadata for a package.
+
+```
+purr info <package> [--version <version>]
+```
+
+| Argument / Option | Description |
+|---|---|
+| `package` | Package name |
+| `--version <version>` | Show info for a specific version instead of latest |
+
+**Examples:**
+```bash
+purr info neofetch
+purr info neofetch --version 2.0.0
+```
+
+---
+
+### stats
+
+Display aggregate statistics for the registry (total packages, downloads, views, most downloaded, recently added).
+
+```
+purr stats
+```
+
+---
+
+## Configuration: fursettings.json
+
+`purr` reads `fursettings.json` from the same directory as its own executable. Use this file to point at private or self-hosted PurrNet instances, or to add fallback mirrors.
+
+```json
+{
+  "repositories": [
+    "http://purr.finite.ovh",
+    "http://my-internal-registry:5001"
+  ]
+}
+```
+
+Repositories are queried **in order**; the first one that returns a successful response for a given package is used. If the file is absent, `purr` defaults to `http://purr.finite.ovh`.
+
+---
+
+## Package Manifest: furconfig.json
+
+Every package registered in the registry has a `furconfig.json` file that describes it. You can inspect a package's manifest with `purr info <package>`.
 
 ```json
 {
   "name": "my-package",
   "version": "1.0.0",
   "description": "A sample package",
-  "authors": ["John Doe", "Jane Smith"],
+  "authors": ["Jane Doe"],
   "homepage": "https://example.com",
   "issue_tracker": "https://github.com/user/repo/issues",
   "git": "https://github.com/user/repo.git",
   "installer": "install.sh",
-  "dependencies": ["dependency1", "dependency2"]
+  "dependencies": ["dep1", "dep2"],
+  "categories": ["utilities"]
 }
 ```
 
-### Configuration Fields
+| Field | Required | Description |
+|---|---|---|
+| `name` | ✅ | Unique package identifier |
+| `version` | ✅ | Semantic version string or `latest` |
+| `description` | | Short description shown in search results |
+| `authors` | | Array of author names |
+| `homepage` | | Project homepage URL |
+| `issue_tracker` | | URL for filing bug reports |
+| `git` | ✅ | Git repository URL (HTTPS) |
+| `installer` | | Filename of the installer script at the repo root |
+| `dependencies` | | Array of other package names to install first |
+| `categories` | | Array of category tags |
 
-- **name**: Package name (required)
-- **version**: Package version (required)
-- **description**: Brief package description
-- **authors**: List of package authors
-- **homepage**: Package homepage URL
-- **issue_tracker**: URL for reporting issues
-- **git**: Git repository URL (required)
-- **installer**: Path to installation script (optional)
-- **dependencies**: List of package dependencies
+When `installer` is **omitted**, `purr` attempts to download a matching binary from the repository's GitHub Releases. When `installer` is **present**, `purr` clones the repository and runs that script.
 
-## Custom Package Sources
+---
 
-You can specify multiple repository API URLs in a `fursettings.json` file in the application directory:
+## Installer Scripts
 
-```json
-{
-  "repositories": [
-    "http://localhost:5001",
-    "http://testing.finite.ovh:8080"
-  ]
-}
+For script-based packages, `purr` detects the script type from its file extension and runs it with the appropriate interpreter:
+
+| Extension | Interpreter |
+|---|---|
+| `.sh` | `bash` |
+| `.ps1` | `pwsh -ExecutionPolicy Bypass -File` |
+| `.py` | `python` |
+| `.js` | `node` |
+| `.rb` | `ruby` |
+| `.cmd` / `.bat` | `cmd /c` (Windows only) |
+| `.exe` | Direct execution (Windows only) |
+| *(none)* | Reads shebang line; falls back to `bash` on Unix |
+
+### Environment Variables for Installer Scripts
+
+When running installer (and uninstaller) scripts, `purr` sets several environment variables that provide useful context to your script:
+
+| Variable              | Description                                               |
+|-----------------------|-----------------------------------------------------------|
+| `PURR_CWD`            | The directory where `purr` was invoked from               |
+| `PURR_INSTALL_DIR`    | The directory where the package is being installed (the script's directory) |
+| `PURR_PACKAGE_NAME`   | The name of the package being installed                   |
+
+These variables are available in all script types:
+
+- **PowerShell:** `$env:PURR_INSTALL_DIR`, `$env:PURR_CWD`, `$env:PURR_PACKAGE_NAME`
+- **Bash/sh:** `$PURR_INSTALL_DIR`, `$PURR_CWD`, `$PURR_PACKAGE_NAME`
+
+Use these variables to reference install locations, perform file operations, or customize install logic based on context.
+
+Installer output is streamed live to the terminal. If the script exits with a non-zero code, the installation is aborted.
+
+For **uninstall**, `purr` looks for a script with the same name but `install` replaced by `uninstall` (e.g. `install.sh` → `uninstall.sh`). If that file does not exist, only the package directory is removed.
+
+---
+
+## PATH Setup
+
+Release-asset binaries are placed in `~/.purr/bin` (Linux/macOS) or `%USERPROFILE%\.purr\bin` (Windows). `purr` checks after every install whether this directory is already on `PATH` and prints the appropriate shell commands if it is not.
+
+**Bash / Zsh (one-time, current session):**
+```bash
+export PATH="$HOME/.purr/bin:$PATH"
 ```
 
-FUR will check each repository in order when searching for packages.
+**Persist in Bash (`~/.bashrc`) or Zsh (`~/.zshrc`):**
+```bash
+echo 'export PATH="$HOME/.purr/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
 
-## Package Management Commands
+**Fish (persistent):**
+```fish
+set -U fish_user_paths $HOME/.purr/bin $fish_user_paths
+```
 
-- **Install**: `fur install package-name[@version]`
-- **Upgrade**: `fur upgrade package-name[@version]`
-- **Downgrade**: `fur downgrade package-name@older-version`
-- **Uninstall**: `fur uninstall package-name`
+**PowerShell (current session):**
+```powershell
+$env:Path = "$env:USERPROFILE\.purr\bin;$env:Path"
+```
+
+**PowerShell / CMD (persist via `setx`):**
+```cmd
+setx PATH "%USERPROFILE%\.purr\bin;%PATH%"
+```
+
+---
 
 ## API Integration
 
-FUR integrates with a REST API server for package management. The default configuration points to `http://localhost:5001`.
+`purr` communicates with a PurrNet REST API. All endpoints are relative to the base URL(s) in `fursettings.json`.
 
-### API Endpoints
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/v1/packages` | List packages (supports `sort`, `search`, `page`, `pageSize`, `details`) |
+| `GET` | `/api/v1/packages/<name>` | Latest manifest for a package |
+| `GET` | `/api/v1/packages/<name>/<version>` | Manifest for a specific version |
+| `POST` | `/api/v1/packages/<name>/download` | Increment download counter |
+| `GET` | `/api/v1/packages/statistics` | Registry-wide statistics |
+| `GET` | `/api/v1/packages/tags` | Popular tags |
+| `GET` | `/api/v1/packages/tags/<tag>` | Packages by tag |
+| `GET` | `/api/v1/packages/authors` | Popular authors |
+| `GET` | `/health` | API health check |
 
-- `GET /api/v1/packages` - List all packages
-- `GET /api/v1/packages?search=query` - Search packages
-- `GET /api/v1/packages?sort=method` - List packages with sorting
-- `GET /api/v1/packages/{name}` - Get latest package info
-- `GET /api/v1/packages/{name}/{version}` - Get specific version info
+See [api.md](api.md) for full request/response schemas.
+
+---
 
 ## Development
 
 ### Project Structure
 
 ```
-d:\fur\
+purr/
+├── Program.cs               # CLI entry point — command definitions and wiring
+├── fursettings.json         # Default/example repository config
+├── purr.csproj
 ├── Services/
-│   ├── PackageManager.cs    # Core package management logic
-│   └── ApiService.cs        # API communication service
+│   ├── PackageManager.cs    # Core install, uninstall, update, search logic
+│   └── ApiService.cs        # HTTP client wrapper for the registry API
 ├── Models/
-│   ├── FurConfig.cs         # Package configuration model
+│   ├── FurConfig.cs         # Package manifest model (furconfig.json)
+│   ├── FurSettings.cs       # CLI settings model (fursettings.json)
+│   ├── PackageListResponse.cs
 │   ├── PackageSearchResult.cs
-│   └── PackageListResponse.cs
-├── Program.cs               # CLI entry point
-├── fur.csproj              # Project configuration
-└── README.md               # This file
+│   ├── HealthStatus.cs
+│   └── RepositoryStatistics.cs
+└── Utils/
+    └── ConsoleHelper.cs     # Coloured terminal output helpers
 ```
-
-### Dependencies
-
-- **System.CommandLine**: Command-line interface framework
-- **.NET 8.0**: Runtime framework
 
 ### Building
 
 ```bash
-# Development build
+# Debug build
 dotnet build
 
 # Release build
 dotnet build --configuration Release
 
-# Run the application
-dotnet run -- [command] [arguments]
+# Run without installing
+dotnet run -- install neofetch
+dotnet run -- search "system info"
+dotnet run -- list --sort mostDownloads
+dotnet run -- info neofetch
+dotnet run -- stats
 ```
-
-### Testing Commands
-
-```bash
-# Test package installation
-dotnet run -- install test-package
-
-# Test package search
-dotnet run -- search "test"
-
-# Test package listing
-dotnet run -- list
-
-# Test package info
-dotnet run -- info test-package
-```
-
-## Package Storage
-
-Packages are stored in the user's home directory:
-- **Windows**: `%USERPROFILE%\.fur\packages\`
-- **Unix/Linux**: `~/.fur/packages/`
-
-Each package is stored in its own subdirectory with:
-- Cloned git repository
-- `furconfig.json` metadata file
-
-## Error Handling
-
-FUR provides detailed error messages for common issues:
-- Network connectivity problems
-- Missing packages
-- Invalid package configurations
-- Installation script failures
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## License
-
-This project is licensed under the AGPL-3.0 License. 
-## Support
-
-For issues and questions:
-- Create an issue in the repository
-- Check the issue tracker URL in package configurations
-- Review the API server logs for debugging
 
 ---
 
-**Note**: Make sure the FUR API server is running on `http://localhost:5001` before using the package manager for now while it's in development. The API server will be included in future releases.
+## License
+
+AGPL-3.0

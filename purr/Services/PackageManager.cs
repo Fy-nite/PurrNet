@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Net.Http;
+using System.IO.Compression;
 using Fur.Models;
 using Fur.Utils;
 
@@ -52,23 +54,24 @@ public class PackageManager
 
     private async Task DownloadAndInstallPackageAsync(FurConfig packageInfo)
     {
-        var packageDir = Path.Combine(_packagesDirectory, packageInfo.Name);
-        
-        if (Directory.Exists(packageDir) && Directory.Exists(Path.Combine(packageDir, ".git")))
-        {
-            ConsoleHelper.WriteStep("Updating", $"{packageInfo.Name} to v{packageInfo.Version}");
-            await UpdateExistingPackageAsync(packageDir, packageInfo);
-        }
-        else
-        {
-            ConsoleHelper.WriteStep("Cloning", packageInfo.Git);
-            Directory.CreateDirectory(packageDir);
-            await CloneNewPackageAsync(packageDir, packageInfo);
-        }
-
-        // Run the installer script
+        // If an installer script is provided in the package metadata, keep old behaviour (clone + run script).
+        // Otherwise, try to download the package's release assets and install any suitable binary onto the user's PATH.
         if (!string.IsNullOrEmpty(packageInfo.Installer))
         {
+            var packageDir = Path.Combine(_packagesDirectory, packageInfo.Name);
+            if (Directory.Exists(packageDir) && Directory.Exists(Path.Combine(packageDir, ".git")))
+            {
+                ConsoleHelper.WriteStep("Updating", $"{packageInfo.Name} to v{packageInfo.Version}");
+                await UpdateExistingPackageAsync(packageDir, packageInfo);
+            }
+            else
+            {
+                ConsoleHelper.WriteStep("Cloning", packageInfo.Git);
+                Directory.CreateDirectory(packageDir);
+                await CloneNewPackageAsync(packageDir, packageInfo);
+            }
+
+            // Run the installer script
             var installerPath = Path.Combine(packageDir, packageInfo.Installer);
             if (File.Exists(installerPath))
             {
@@ -88,12 +91,200 @@ public class PackageManager
             {
                 ConsoleHelper.WriteWarning($"Installer script '{packageInfo.Installer}' not found, skipping");
             }
+
+            // Save package metadata
+            var metadataPath = Path.Combine(packageDir, "furconfig.json");
+            var json = JsonSerializer.Serialize(packageInfo, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(metadataPath, json);
+        }
+        else
+        {
+            // Try to download release assets and install
+            try
+            {
+                await DownloadReleaseAssetAndInstallAsync(packageInfo);
+            }
+            catch (Exception ex)
+            {
+                ConsoleHelper.WriteWarning($"Could not install from release assets: {ex.Message}");
+                ConsoleHelper.WriteInfo("Falling back to repository clone and attempting to run installer if present.");
+
+                // Fallback: clone repository to preserve previous behaviour
+                var packageDir = Path.Combine(_packagesDirectory, packageInfo.Name);
+                Directory.CreateDirectory(packageDir);
+                await CloneNewPackageAsync(packageDir, packageInfo);
+            }
+        }
+    }
+
+    private async Task DownloadReleaseAssetAndInstallAsync(FurConfig packageInfo)
+    {
+        // Parse GitHub owner/repo from the Git URL
+        if (string.IsNullOrEmpty(packageInfo.Git))
+            throw new Exception("No repository specified");
+
+        Uri gitUri;
+        try { gitUri = new Uri(packageInfo.Git); } catch { throw new Exception("Invalid Git URL"); }
+
+        // Only support github.com hosts for release downloads
+        if (!gitUri.Host.Contains("github.com"))
+            throw new Exception("Release asset download currently only supports GitHub repositories");
+
+        var segments = gitUri.AbsolutePath.Trim('/').Split('/');
+        if (segments.Length < 2)
+            throw new Exception("Could not parse owner/repo from Git URL");
+
+        var owner = segments[0];
+        var repo = segments[1].EndsWith(".git") ? segments[1][..^4] : segments[1];
+
+        var http = new HttpClient();
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("purr-cli/1.0");
+        http.Timeout = TimeSpan.FromSeconds(30);
+
+        string apiUrl = string.IsNullOrEmpty(packageInfo.Version) || packageInfo.Version == "latest"
+            ? $"https://api.github.com/repos/{owner}/{repo}/releases/latest"
+            : $"https://api.github.com/repos/{owner}/{repo}/releases/tags/{packageInfo.Version}";
+
+        var resp = await http.GetAsync(apiUrl);
+        if (!resp.IsSuccessStatusCode)
+            throw new Exception($"GitHub API returned {resp.StatusCode}");
+
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        if (!doc.RootElement.TryGetProperty("assets", out var assets) || assets.GetArrayLength() == 0)
+            throw new Exception("No release assets found");
+
+        // Choose an asset that appears to match the current OS
+        string? chosenUrl = null;
+        string? chosenName = null;
+        var os = OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "mac" : "linux";
+
+        foreach (var asset in assets.EnumerateArray())
+        {
+            var name = asset.GetProperty("name").GetString() ?? string.Empty;
+            var url = asset.GetProperty("browser_download_url").GetString() ?? string.Empty;
+            var lname = name.ToLowerInvariant();
+            if (lname.Contains(os) || lname.Contains("win") || lname.Contains("darwin") || lname.Contains("linux") )
+            {
+                chosenUrl = url; chosenName = name; break;
+            }
         }
 
-        // Save package metadata
-        var metadataPath = Path.Combine(packageDir, "furconfig.json");
-        var json = JsonSerializer.Serialize(packageInfo, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(metadataPath, json);
+        // fallback to first asset
+        if (chosenUrl == null)
+        {
+            var first = assets[0];
+            chosenName = first.GetProperty("name").GetString();
+            chosenUrl = first.GetProperty("browser_download_url").GetString();
+        }
+
+        if (chosenUrl == null)
+            throw new Exception("No suitable release asset found");
+
+        ConsoleHelper.WriteStep("Downloading asset", chosenName ?? "(asset)");
+        var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(tmp);
+        var localPath = Path.Combine(tmp, chosenName ?? "asset.bin");
+
+        using (var s = await http.GetStreamAsync(chosenUrl))
+        using (var fs = File.Create(localPath))
+            await s.CopyToAsync(fs);
+
+        // Prepare user's bin directory
+        var userBin = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr", "bin");
+        Directory.CreateDirectory(userBin);
+
+        // If it's a zip, try to extract and find an executable
+            if (localPath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            var extractDir = Path.Combine(tmp, "ex");
+            ZipFile.ExtractToDirectory(localPath, extractDir);
+            // find candidate executables
+            var candidates = Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories)
+                .Where(f => (OperatingSystem.IsWindows() && f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) || (!OperatingSystem.IsWindows() && Path.GetExtension(f) == string.Empty))
+                .ToList();
+            if (candidates.Count == 0)
+                throw new Exception("No executable found inside zip asset");
+
+            var exe = candidates[0];
+            var dest = Path.Combine(userBin, Path.GetFileName(exe));
+            File.Copy(exe, dest, true);
+            if (!OperatingSystem.IsWindows())
+                await RunCommandAsync("chmod", $"+x \"{dest}\"");
+
+            // create simple shim name (package name)
+            var shim = Path.Combine(userBin, packageInfo.Name + (OperatingSystem.IsWindows() ? ".exe" : ""));
+            try { if (File.Exists(shim)) File.Delete(shim); } catch {}
+            File.Copy(dest, shim);
+
+            ConsoleHelper.WriteSuccess($"Installed {Path.GetFileName(dest)} to {userBin}");
+            PrintPathInstructions(userBin, packageInfo.Name);
+            return;
+        }
+
+        // Otherwise treat the asset as a single executable binary
+        var finalName = Path.GetFileName(localPath);
+        var target = Path.Combine(userBin, finalName);
+        File.Move(localPath, target);
+        if (!OperatingSystem.IsWindows())
+            await RunCommandAsync("chmod", $"+x \"{target}\"");
+
+        // create shim with package name
+        var shimPath = Path.Combine(userBin, packageInfo.Name + (OperatingSystem.IsWindows() ? ".exe" : ""));
+        try { if (File.Exists(shimPath)) File.Delete(shimPath); } catch {}
+        File.Copy(target, shimPath);
+
+        ConsoleHelper.WriteSuccess($"Installed {finalName} to {userBin}");
+        PrintPathInstructions(userBin, packageInfo.Name);
+    }
+
+    private void PrintPathInstructions(string userBin, string packageName)
+    {
+        try
+        {
+            var path = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+            var parts = path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries).Select(p => p.Trim()).ToList();
+            if (parts.Any(p => string.Equals(Path.GetFullPath(p), Path.GetFullPath(userBin), StringComparison.OrdinalIgnoreCase)))
+            {
+                // already on PATH
+                ConsoleHelper.WriteInfo($"{userBin} is already in PATH. You can run '{packageName}' now.");
+                return;
+            }
+
+            ConsoleHelper.WriteWarning($"{userBin} is not currently in your PATH.");
+
+            if (OperatingSystem.IsWindows())
+            {
+                ConsoleHelper.WriteInfo("PowerShell (current session):");
+                ConsoleHelper.WriteDim($"  $env:Path = \"$env:USERPROFILE\\.purr\\bin;$env:Path\"");
+                ConsoleHelper.WriteInfo("PowerShell (persist):");
+                ConsoleHelper.WriteDim($"  setx PATH \"%USERPROFILE%\\.purr\\bin;%PATH%\"");
+                ConsoleHelper.WriteInfo("Command Prompt (persist):");
+                ConsoleHelper.WriteDim($"  setx PATH \"%USERPROFILE%\\.purr\\bin;%PATH%\"");
+            }
+            else
+            {
+                var shell = Environment.GetEnvironmentVariable("SHELL") ?? string.Empty;
+                string rcFile = "~/.profile";
+                if (shell.Contains("zsh")) rcFile = "~/.zshrc";
+                else if (shell.Contains("bash")) rcFile = "~/.bashrc";
+
+                ConsoleHelper.WriteInfo("Add to current session:");
+                ConsoleHelper.WriteDim($"  export PATH=\"$HOME/.purr/bin:$PATH\"");
+
+                ConsoleHelper.WriteInfo($"Persist for future sessions (append to {rcFile}):");
+                ConsoleHelper.WriteDim($"  echo 'export PATH=\"$HOME/.purr/bin:$PATH\"' >> {rcFile}");
+
+                ConsoleHelper.WriteInfo("Fish shell (persistent):");
+                ConsoleHelper.WriteDim($"  set -U fish_user_paths $HOME/.purr/bin $fish_user_paths");
+            }
+
+            Console.WriteLine();
+            ConsoleHelper.WriteInfo($"After adding, open a new shell or source your rc file to run '{packageName}' immediately.");
+        }
+        catch (Exception ex)
+        {
+            ConsoleHelper.WriteWarning($"Could not determine PATH instructions: {ex.Message}");
+        }
     }
 
     private async Task UpdateExistingPackageAsync(string packageDir, FurConfig packageInfo)
@@ -176,7 +367,16 @@ public class PackageManager
             throw new Exception($"Cannot execute installer with unsupported extension: {extension}");
         }
 
-        await RunCommandAsync(command, arguments, showOutput);
+        // Determine install directory and package name for env vars
+        string? installDir = Path.GetDirectoryName(scriptPath);
+        string? packageName = installDir != null ? Path.GetFileName(installDir) : null;
+        string cwd = Directory.GetCurrentDirectory();
+
+        await RunCommandAsync(command, arguments, showOutput, new Dictionary<string, string?> {
+            {"PURR_CWD", cwd},
+            {"PURR_INSTALL_DIR", installDir},
+            {"PURR_PACKAGE_NAME", packageName}
+        });
     }
 
     private static (string? command, string arguments) GetShellForScript(string extension, string scriptPath)
@@ -563,12 +763,7 @@ public class PackageManager
         return parts.Length == 2 ? (parts[0], parts[1]) : (parts[0], null);
     }
 
-    private static async Task RunCommandAsync(string command, string arguments)
-    {
-        await RunCommandAsync(command, arguments, showOutput: false);
-    }
-
-    private static async Task RunCommandAsync(string command, string arguments, bool showOutput)
+    private static async Task RunCommandAsync(string command, string arguments, bool showOutput, Dictionary<string, string?>? extraEnv = null)
     {
         var process = new Process
         {
@@ -581,6 +776,16 @@ public class PackageManager
                 RedirectStandardError = true
             }
         };
+
+        // Inject environment variables if provided
+        if (extraEnv != null)
+        {
+            foreach (var kv in extraEnv)
+            {
+                if (!string.IsNullOrEmpty(kv.Key) && kv.Value != null)
+                    process.StartInfo.EnvironmentVariables[kv.Key] = kv.Value;
+            }
+        }
 
         process.Start();
 
@@ -618,5 +823,10 @@ public class PackageManager
                                    : await process.StandardError.ReadToEndAsync();
             throw new Exception($"Command failed: {error}");
         }
+    }
+
+    private static async Task RunCommandAsync(string command, string arguments)
+    {
+        await RunCommandAsync(command, arguments, showOutput: false, null);
     }
 }

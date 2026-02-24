@@ -1,0 +1,32 @@
+@page
+@{
+    ViewData["Title"] = "Installing Packages";
+}
+
+<h1>Installing Packages with <code>purr</code></h1>
+
+<p>This page describes how <code>purr</code> installs packages from a PurrNet registry.</p>
+
+<h3>1. Fetch metadata</h3>
+<p><code>purr</code> queries each configured repository API in order at <code>GET /api/v1/packages/&lt;name&gt;</code> (or <code>/&lt;name&gt;/&lt;version&gt;</code> for a pinned version) until it receives a <code>200 OK</code> response.</p>
+
+<h3>2. Resolve dependencies</h3>
+<p>Any packages listed in the manifest's <code>dependencies</code> array are installed recursively before the requested package.</p>
+
+<h3>3. Download &amp; install</h3>
+<p><strong>Release asset install (no <code>installer</code> field)</strong></p>
+<ul>
+    <li><p><code>purr</code> queries the repository's GitHub Releases for the package repository, selects the best-matching asset for the OS, downloads it, extracts if necessary, and copies the executable to the CLI binary directory (<code>~/.purr/bin</code> on Unix or <code>%USERPROFILE%\.purr\bin</code> on Windows).</p></li>
+</ul>
+<p><strong>Script-based install (has <code>installer</code> field)</strong></p>
+<ul>
+    <li><p><code>purr</code> clones (or updates) the package repository into <code>~/.fur/packages/&lt;name&gt;</code>, checks out the requested version, and runs the installer script (for example <code>install.sh</code>). A <code>furconfig.json</code> snapshot is written next to the clone.</p></li>
+</ul>
+
+<h3>4. Track download</h3>
+<p>After a successful install, <code>purr</code> posts <code>POST /api/v1/packages/&lt;name&gt;/download</code> to increment the registry download counter.</p>
+
+<h4>Examples</h4>
+<pre><code>purr install neofetch
+purr install neofetch@2.0.0
+</code></pre>

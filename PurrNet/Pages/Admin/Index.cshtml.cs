@@ -85,18 +85,18 @@ namespace Purrnet.Pages.Admin
                 {
                     Message = "You cannot revoke your own admin privileges.";
                     IsSuccess = false;
-                    
+
                     // Reload data
                     Packages = await _packageService.GetAllPackagesAsync();
                     Statistics = await _packageService.GetStatisticsAsync();
                     AllUsers = await _userService.GetAllUsersAsync();
-                    
+
                     return Page();
                 }
             }
 
             var success = await _userService.RevokeAdminAsync(userId);
-            
+
             if (success)
             {
                 Message = "Admin privileges successfully revoked.";
@@ -109,6 +109,51 @@ namespace Purrnet.Pages.Admin
             }
 
             // Reload data
+            Packages = await _packageService.GetAllPackagesAsync();
+            Statistics = await _packageService.GetStatisticsAsync();
+            AllUsers = await _userService.GetAllUsersAsync();
+
+            return Page();
+        }
+
+        public async Task<IActionResult> OnPostBanUserAsync(int userId)
+        {
+            if (!User.HasClaim("IsAdmin", "True")) return Forbid();
+
+            var success = await _userService.BanUserAsync(userId);
+            Message = success ? "User banned." : "Failed to ban user.";
+            IsSuccess = success;
+
+            Packages = await _packageService.GetAllPackagesAsync();
+            Statistics = await _packageService.GetStatisticsAsync();
+            AllUsers = await _userService.GetAllUsersAsync();
+
+            return Page();
+        }
+
+        public async Task<IActionResult> OnPostUnbanUserAsync(int userId)
+        {
+            if (!User.HasClaim("IsAdmin", "True")) return Forbid();
+
+            var success = await _userService.UnbanUserAsync(userId);
+            Message = success ? "User unbanned." : "Failed to unban user.";
+            IsSuccess = success;
+
+            Packages = await _packageService.GetAllPackagesAsync();
+            Statistics = await _packageService.GetStatisticsAsync();
+            AllUsers = await _userService.GetAllUsersAsync();
+
+            return Page();
+        }
+
+        public async Task<IActionResult> OnPostReportOutdatedAsync(int packageId)
+        {
+            if (!User.HasClaim("IsAdmin", "True")) return Forbid();
+
+            var success = await _packageService.MarkPackageOutdatedAsync(packageId, true);
+            Message = success ? "Package flagged as outdated." : "Failed to flag package.";
+            IsSuccess = success;
+
             Packages = await _packageService.GetAllPackagesAsync();
             Statistics = await _packageService.GetStatisticsAsync();
             AllUsers = await _userService.GetAllUsersAsync();

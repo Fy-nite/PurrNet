@@ -15,5 +15,7 @@ namespace Purrnet.Services
         Task<bool> PromoteToAdminAsync(int userId);
         Task<bool> RevokeAdminAsync(int userId);
         Task<bool> MakeFirstUserAdminAsync();
+        Task<bool> BanUserAsync(int userId);
+        Task<bool> UnbanUserAsync(int userId);
     }
 }

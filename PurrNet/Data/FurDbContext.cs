@@ -91,11 +91,17 @@ namespace Purrnet.Data
                 entity.HasIndex(e => e.GitHubId).IsUnique();
                 entity.HasIndex(e => e.Username).IsUnique();
                 entity.HasIndex(e => e.Email);
+                entity.HasIndex(e => e.IsBanned);
                 
                 entity.Property(e => e.GitHubId).HasMaxLength(50);
                 entity.Property(e => e.Username).HasMaxLength(100);
                 entity.Property(e => e.Email).HasMaxLength(255);
                 entity.Property(e => e.AvatarUrl).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<Package>(entity =>
+            {
+                entity.HasIndex(e => e.IsOutdated);
             });
 
             modelBuilder.Entity<PackageReview>(entity =>

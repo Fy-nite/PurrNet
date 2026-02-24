@@ -53,6 +53,8 @@ namespace Purrnet.Models
         public DateTime LastUpdated { get; set; }
         public DateTime CreatedAt { get; set; }
         public bool IsActive { get; set; } = true;
+        // Mark package as flagged/outdated by admins
+        public bool IsOutdated { get; set; } = false;
         public string? CreatedBy { get; set; }
         public string? UpdatedBy { get; set; }
         public int ViewCount { get; set; }
@@ -214,6 +216,7 @@ namespace Purrnet.Models
         public DateTime CreatedAt { get; set; }
         public DateTime LastLoginAt { get; set; }
         public bool IsAdmin { get; set; }
+        public bool IsBanned { get; set; } = false;
 
         // Navigation properties
         public List<Package> OwnedPackages { get; set; } = new();

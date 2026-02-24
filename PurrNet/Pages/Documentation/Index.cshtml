@@ -1,4 +1,20 @@
 ﻿@page
+@{
+    ViewData["Title"] = "Documentation";
+}
+
+<h1>Documentation</h1>
+
+<p>Focused pages covering common user topics for the Purr CLI and the PurrNet registry.</p>
+
+<ul>
+    <li><a asp-page="/Documentation/InstallPackages">Installing Packages</a></li>
+    <li><a asp-page="/Documentation/DirectoryLayout">Directory Layout</a></li>
+    <li><a asp-page="/Documentation/Commands">Commands Reference</a></li>
+    <li><a asp-page="/Documentation/Configuration">Configuration &amp; Manifests</a></li>
+    <li><a asp-page="/Documentation/InstallerScripts">Installer Scripts &amp; PATH</a></li>
+</ul>
+
 @model purrnet.Pages.Documentation.IndexModel
 @using Markdig
 @{
