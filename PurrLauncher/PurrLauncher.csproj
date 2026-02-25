@@ -22,7 +22,7 @@
 		<ApplicationTitle>PurrLauncher</ApplicationTitle>
 
 		<!-- App Identifier -->
-		<ApplicationId>com.companyname.purrlauncher</ApplicationId>
+		<ApplicationId>ovh.finite.purrlauncher</ApplicationId>
 
 		<!-- Versions -->
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
