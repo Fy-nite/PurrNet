@@ -78,7 +78,33 @@
                                         </div>
                                     </td>
                                     <td>@string.Join(", ", package.Authors)</td>
-                                    <td>@package.Version</td>
+                                    <td>
+                                        @{
+                                            List<string>? versions = null;
+                                            if (Model.VersionMap != null && Model.VersionMap.TryGetValue(package.Name, out var v))
+                                                versions = v;
+                                        }
+                                        @if (versions == null || versions.Count <= 1)
+                                        {
+                                            <span>@package.Version</span>
+                                        }
+                                        else
+                                        {
+                                            <div class="btn-group">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                    @package.Version
+                                                </button>
+                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                    @foreach (var ver in versions)
+                                                    {
+                                                        <li>
+                                                            <a class="dropdown-item" asp-page="/Packages/Details" asp-route-name="@package.Name" asp-route-version="@ver">@ver</a>
+                                                        </li>
+                                                    }
+                                                </ul>
+                                            </div>
+                                        }
+                                    </td>
                                     <td>
                                         <span class="badge @(package.IsActive ? "bg-success" : "bg-secondary")">
                                             @(package.IsActive ? "Active" : "Inactive")

@@ -1,3 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
 PURR_API_URL="https://purr.finite.ovh/Latest"
 REPO_OWNER="fy-nite"
 # package / tool id (adjust if your published package uses a different id)
@@ -105,7 +108,17 @@ Purr Installer
 EOF
 }
 
-if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+# when the script is piped into bash (`curl ... | bash`) BASH_SOURCE
+# may be undefined, and `set -u` would error.  use parameter expansion with
+# a default value so the test still works.
+if [[ "${BASH_SOURCE[0]:-}" == "$0" ]]; then
+  # if stdin isn't a terminal then we're running non‑interactively (e.g. a
+  # pipe).  skip the menu and perform the default install path directly.
+  if ! [ -t 0 ]; then
+    install
+    exit 0
+  fi
+
   while true; do
     print_menu
     read -rp $'Enter choice (1-4): ' choice

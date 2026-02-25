@@ -17,8 +17,9 @@
 
         // Fill code blocks for CLI install examples
         const psCmd = `Invoke-RestMethod -Uri ${psUrl} | Invoke-Expression`;
-        const curlCmd = `curl -sL ${shUrl} | sh`;
-        const wgetCmd = `wget -qO- ${shUrl} | sh`;
+        // use bash explicitly as the installer relies on bash features
+        const curlCmd = `curl -sL ${shUrl} | bash`;
+        const wgetCmd = `wget -qO- ${shUrl} | bash`;
 
         document.querySelectorAll('[data-install="ps"]').forEach(el => el.textContent = psCmd);
         document.querySelectorAll('[data-install="curl"]').forEach(el => el.textContent = curlCmd);
@@ -79,7 +80,7 @@
                         <div class="col-md-6">
                             <div class="card">
                                 <div class="card-header d-flex justify-content-between align-items-center">
-                                    <span><i class="bi bi-terminal me-1"></i> Shell (macOS / Linux)</span>
+                                    <span><i class="bi bi-terminal me-1"></i> Bash (macOS / Linux)</span>
                                     <div>
                                         <button class="btn btn-sm btn-outline-secondary" data-copy-btn data-copy-target="#curlCmd"><i class="bi bi-clipboard"></i> Copy curl</button>
                                         <button class="btn btn-sm btn-outline-secondary ms-1" data-copy-btn data-copy-target="#wgetCmd"><i class="bi bi-clipboard"></i> Copy wget</button>
@@ -88,6 +89,7 @@
                                 <div class="card-body p-2">
                                     <pre class="mb-1"><code id="curlCmd" data-install="curl">Loading…</code></pre>
                                     <pre class="mb-0"><code id="wgetCmd" data-install="wget">Loading…</code></pre>
+                        <p class="mt-2"><em>Note: the script requires <code>bash</code>; piping to <code>sh</code> may fail on some systems.</em></p>
                                 </div>
                             </div>
                         </div>

@@ -75,8 +75,9 @@ namespace Purrnet.Services
 
                 if (existingPackage != null)
                 {
-                    _logger.LogWarning("Package {PackageName} already exists", PurrConfig.Name);
-                    return false;
+                    _logger.LogInformation("Package {PackageName} already exists; updating existing record", PurrConfig.Name);
+                    // Delegate to update flow so version history is recorded and fields are refreshed
+                    return await UpdatePackageAsync(existingPackage.Id, PurrConfig, createdBy);
                 }
 
                 // Validate ownerId points to an existing user to avoid FK failures

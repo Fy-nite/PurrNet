@@ -12,6 +12,8 @@ namespace Purrnet.Pages.Admin
         private readonly IPackageService _packageService;
 
         public List<Package> Packages { get; set; } = new();
+        // Map of package name -> versions (current + history) for dropdowns
+        public Dictionary<string, List<string>> VersionMap { get; set; } = new();
         
         [BindProperty(SupportsGet = true)]
         public string Filter { get; set; } = "all";
@@ -77,6 +79,21 @@ namespace Purrnet.Pages.Admin
                 "downloads" => Packages.OrderByDescending(p => p.Downloads).ToList(),
                 _ => Packages.OrderByDescending(p => p.CreatedAt).ToList()
             };
+
+            // Fetch version history for each package to populate UI dropdowns
+            VersionMap = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var pkg in Packages)
+            {
+                try
+                {
+                    var versions = await _packageService.GetPackageVersionsAsync(pkg.Name);
+                    VersionMap[pkg.Name] = versions ?? new List<string> { pkg.Version };
+                }
+                catch
+                {
+                    VersionMap[pkg.Name] = new List<string> { pkg.Version };
+                }
+            }
 
             return Page();
         }
