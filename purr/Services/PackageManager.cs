@@ -282,6 +282,14 @@ public class PackageManager
             ZipFile.ExtractToDirectory(localPath, extractDir);
             // find candidate executables
             var allFiles = Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories).ToList();
+            if (_verbose)
+            {
+                Console.WriteLine($"[purr] Extracted {allFiles.Count} files from zip (showing up to 20):");
+                foreach (var f in allFiles.Take(20))
+                {
+                    Console.WriteLine($"[purr]   {f}");
+                }
+            }
 
             // Filter helper: exclude obvious non-executables (debug / metadata files)
             var excludedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -329,16 +337,53 @@ public class PackageManager
                 // Prefer extensionless, then .exe, then .sh, then others
                 exe = candidates.OrderBy(f => string.IsNullOrEmpty(Path.GetExtension(f)) ? 0 : Path.GetExtension(f).Equals(".exe", StringComparison.OrdinalIgnoreCase) ? 1 : Path.GetExtension(f).Equals(".sh", StringComparison.OrdinalIgnoreCase) ? 2 : 3).First();
             }
-
             var dest = Path.Combine(userBin, Path.GetFileName(exe));
-            File.Copy(exe, dest, true);
+            if (_verbose)
+            {
+                Console.WriteLine($"[purr] Copying from: {exe}");
+                Console.WriteLine($"[purr] Destination: {dest}");
+                Console.WriteLine($"[purr] Source exists: {File.Exists(exe)}");
+            }
+
+            try
+            {
+                File.Copy(exe, dest, true);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to copy extracted file: {ex.Message}");
+            }
+
+            if (_verbose)
+            {
+                Console.WriteLine($"[purr] After copy, dest exists: {File.Exists(dest)}");
+                if (File.Exists(dest))
+                {
+                    Console.WriteLine($"[purr] Dest size: {new FileInfo(dest).Length}");
+                }
+            }
+
             if (!OperatingSystem.IsWindows())
                 await RunCommandAsync("chmod", $"+x \"{dest}\"");
 
+            if (_verbose)
+            {
+                Console.WriteLine($"[purr] After chmod, dest exists: {File.Exists(dest)}");
+            }
+
             // create simple shim name (package name)
             var shim = Path.Combine(userBin, packageInfo.Name + (OperatingSystem.IsWindows() ? ".exe" : ""));
-            try { if (File.Exists(shim)) File.Delete(shim); } catch {}
-            File.Copy(dest, shim);
+            try {
+                if (File.Exists(shim) && !string.Equals(shim, dest, StringComparison.OrdinalIgnoreCase))
+                    File.Delete(shim);
+            } catch {}
+
+            if (!File.Exists(dest))
+                throw new Exception($"Could not find file '{dest}'.");
+
+            // If dest and shim are the same path, no extra copy is required
+            if (!string.Equals(dest, shim, StringComparison.OrdinalIgnoreCase))
+                File.Copy(dest, shim);
 
             ConsoleHelper.WriteSuccess($"Installed {Path.GetFileName(dest)} to {userBin}");
             PrintPathInstructions(userBin, packageInfo.Name);
