@@ -20,8 +20,10 @@ namespace Purrnet.Services
         {
             try
             {
+                // Return all packages (including inactive) so admin pages and exports
+                // can see hidden/inactive records. Public-facing APIs use other
+                // methods that filter by `IsActive` where appropriate.
                 return await _context.Packages
-                    .Where(p => p.IsActive)
                     .OrderBy(p => p.Name)
                     .ToListAsync();
             }

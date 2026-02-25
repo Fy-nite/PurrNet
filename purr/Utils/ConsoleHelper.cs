@@ -34,6 +34,7 @@ public static class ConsoleHelper
         Console.Write("ℹ ");
         Console.ResetColor();
         Console.WriteLine(message);
+        Console.WriteLine();
     }
 
     public static void WriteStep(string action, string target)
@@ -69,6 +70,13 @@ public static class ConsoleHelper
     {
         Console.ForegroundColor = ConsoleColor.DarkGray;
         Console.Write(text);
+        Console.ResetColor();
+    }
+
+    public static void WriteDimLine(string text)
+    {
+        Console.ForegroundColor = ConsoleColor.DarkGray;
+        Console.WriteLine(text);
         Console.ResetColor();
     }
 }

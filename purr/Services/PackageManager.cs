@@ -262,6 +262,28 @@ public class PackageManager
         if (chosenUrl == null)
             throw new Exception("No suitable release asset found");
 
+        // If the selected asset looks like a library (not an executable), don't install it
+        bool IsLibraryAsset(string? n)
+        {
+            if (string.IsNullOrEmpty(n)) return false;
+            var ln = n.ToLowerInvariant();
+            var libExts = new[] { ".dll", ".so", ".dylib", ".a", ".lib", ".jar", ".nupkg", ".framework" };
+            if (libExts.Any(e => ln.EndsWith(e))) return true;
+            var libTokens = new[] { "library", "lib", "sdk", "-lib", "-library" };
+            if (libTokens.Any(t => ln.Contains(t))) return true;
+            return false;
+        }
+
+        if (IsLibraryAsset(chosenName))
+        {
+            ConsoleHelper.WriteWarning("Selected release asset appears to be a library rather than a runnable executable.");
+            ConsoleHelper.WriteInfo("Use this package as a build-time dependency instead of installing to your PATH:");
+            ConsoleHelper.WriteDimLine($"  Asset: {chosenName} -> {chosenUrl}");
+            ConsoleHelper.WriteInfo("Add the library to your meow project's dependency list or download the asset into your build system's libs directory.");
+            ConsoleHelper.WriteInfo("If you want purr to still provide a runnable shim, open an issue requesting support for this package type.");
+            return;
+        }
+
         ConsoleHelper.WriteStep("Downloading asset", chosenName ?? "(asset)");
         var tmp = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tmp);
@@ -424,11 +446,11 @@ public class PackageManager
             if (OperatingSystem.IsWindows())
             {
                 ConsoleHelper.WriteInfo("PowerShell (current session):");
-                ConsoleHelper.WriteDim($"  $env:Path = \"$env:USERPROFILE\\.purr\\bin;$env:Path\"");
+                ConsoleHelper.WriteDimLine($"  $env:Path = \"$env:USERPROFILE\\.purr\\bin;$env:Path\"");
                 ConsoleHelper.WriteInfo("PowerShell (persist):");
-                ConsoleHelper.WriteDim($"  setx PATH \"%USERPROFILE%\\.purr\\bin;%PATH%\"");
+                ConsoleHelper.WriteDimLine($"  setx PATH \"%USERPROFILE%\\.purr\\bin;%PATH%\"");
                 ConsoleHelper.WriteInfo("Command Prompt (persist):");
-                ConsoleHelper.WriteDim($"  setx PATH \"%USERPROFILE%\\.purr\\bin;%PATH%\"");
+                ConsoleHelper.WriteDimLine($"  setx PATH \"%USERPROFILE%\\.purr\\bin;%PATH%\"");
             }
             else
             {
@@ -438,13 +460,13 @@ public class PackageManager
                 else if (shell.Contains("bash")) rcFile = "~/.bashrc";
 
                 ConsoleHelper.WriteInfo("Add to current session:");
-                ConsoleHelper.WriteDim($"  export PATH=\"$HOME/.purr/bin:$PATH\"");
+                ConsoleHelper.WriteDimLine($"  export PATH=\"$HOME/.purr/bin:$PATH\"");
 
                 ConsoleHelper.WriteInfo($"Persist for future sessions (append to {rcFile}):");
-                ConsoleHelper.WriteDim($"  echo 'export PATH=\"$HOME/.purr/bin:$PATH\"' >> {rcFile}");
+                ConsoleHelper.WriteDimLine($"  echo 'export PATH=\"$HOME/.purr/bin:$PATH\"' >> {rcFile}");
 
                 ConsoleHelper.WriteInfo("Fish shell (persistent):");
-                ConsoleHelper.WriteDim($"  set -U fish_user_paths $HOME/.purr/bin $fish_user_paths");
+                ConsoleHelper.WriteDimLine($"  set -U fish_user_paths $HOME/.purr/bin $fish_user_paths");
             }
 
             Console.WriteLine();

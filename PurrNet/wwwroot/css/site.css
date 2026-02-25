@@ -2,8 +2,8 @@
     /* Metro (Windows 10) inspired variables */
     --bg-color: #f3f3f3;
     --text-color: #222222;
-    --accent-color: #0078D7; /* Windows 10 blue */
-    --accent-strong: #0063b1;
+    --accent-color: #1e3e58; /* Windows 10 blue */
+    --accent-strong: #015b8f;
     --tile-bg: #ffffff;
     --muted: #6b6b6b;
     --border: #e6e6e6;
@@ -16,8 +16,8 @@
 [data-theme="dark"] {
     --bg-color: #1b1b1b;
     --text-color: #eaeaea;
-    --accent-color: #1a73e8;
-    --accent-strong: #145dbf;
+    --accent-color: #1e3758;
+    --accent-strong: #00459e;
     --tile-bg: #242424;
     --muted: #9a9a9a;
     --border: #2f2f2f;
@@ -290,3 +290,54 @@ a:focus, button:focus, .form-control:focus { outline: 2px solid rgba(0,120,215,0
 
   /* Make sure the table stretches to available width */
   .packages-table .table td, .packages-table .table th { vertical-align: middle; }
+
+/* Package details helper rows */
+.detail-list { padding: 0.25rem 0; }
+.detail-list .detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--border);
+}
+.detail-list .detail-row:first-child { border-top: 0; }
+.detail-list .detail-label { color: var(--muted); font-weight:600; flex: 0 0 auto; }
+.detail-list .detail-value { flex: 1 1 0; text-align: right; }
+.detail-list .detail-value a { display: inline-flex; align-items: center; }
+
+@media (max-width: 767px) {
+  .detail-list .detail-row { flex-wrap: wrap; align-items: flex-start; }
+  .detail-list .detail-value { text-align: left; width: 100%; margin-top: 0.25rem; }
+}
+
+/* Ensure Bootstrap's hard-coded black colors don't show in dark theme.
+   Prefer using the theme variables so components follow [data-theme="dark"]. */
+[data-theme="dark"] .table,
+[data-theme="dark"] .table td,
+[data-theme="dark"] .table th,
+[data-theme="dark"] .btn,
+[data-theme="dark"] .btn-outline-primary,
+[data-theme="dark"] .btn-outline-secondary,
+[data-theme="dark"] .btn-outline-warning,
+[data-theme="dark"] .badge,
+[data-theme="dark"] a,
+[data-theme="dark"] .navbar .nav-link,
+[data-theme="dark"] .card,
+[data-theme="dark"] .metro-tile,
+[data-theme="dark"] .hero-section,
+[data-theme="dark"] .packages-table .table,
+[data-theme="dark"] .community-links a {
+  color: var(--text-color) !important;
+}
+
+[data-theme="dark"] .btn-warning {
+  /* yellow background is fine; ensure sufficient contrast by using light text */
+  color: #111; /* keep dark text on yellow buttons for contrast */
+}
+
+[data-theme="dark"] code,
+[data-theme="dark"] pre,
+[data-theme="dark"] .json-display {
+  color: var(--text-color) !important;
+}
