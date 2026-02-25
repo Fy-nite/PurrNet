@@ -66,6 +66,7 @@ namespace Purrnet.Controllers.Api
                         Git = p.Git,
                         Installer = p.Installer,
                         Dependencies = p.Dependencies,
+                        MainFile = p.MainFile,
                         IconUrl = p.IconUrl
                     }).ToList();
                 }
@@ -132,6 +133,7 @@ namespace Purrnet.Controllers.Api
                     Git = package.Git,
                     Installer = package.Installer,
                     Dependencies = package.Dependencies,
+                    MainFile = package.MainFile,
                     IconUrl = package.IconUrl
                 };
 

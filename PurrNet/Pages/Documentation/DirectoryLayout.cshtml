@@ -11,7 +11,7 @@
 └── bin/                      # Binaries installed from release assets
     └── &lt;package-name&gt;
 
-~/.fur/
+~/.purr/
 └── packages/
     └── &lt;package-name&gt;/       # One directory per script-installed package
         ├── .git/             # Full git clone of the package's repository
@@ -22,6 +22,6 @@
 <p><strong>Notes</strong></p>
 <ul>
     <li>Release-asset-installed executables are placed in <code>~/.purr/bin</code> (or <code>%USERPROFILE%\.purr\bin</code> on Windows).</li>
-    <li>Script-based packages are full git clones under <code>~/.fur/packages</code> so installers can run from the repo.</li>
+    <li>Script-based packages are full git clones under <code>~/.purr/packages</code> so installers can run from the repo.</li>
     <li><code>purr</code> does not automatically remove binaries from <code>~/.purr/bin</code> when uninstalling script-based packages; remove them manually if needed.</li>
 </ul>

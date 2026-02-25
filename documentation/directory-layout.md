@@ -9,7 +9,7 @@ User-level directories:
 └── bin/                      # Binaries installed from release assets
     └── <package-name>
 
-~/.fur/
+~/.purr/
 └── packages/
     └── <package-name>/       # One directory per script-installed package
         ├── .git/             # Full git clone of the package's repository
@@ -19,5 +19,5 @@ User-level directories:
 
 Notes:
 - Release-asset-installed executables are placed in `~/.purr/bin` (or `%USERPROFILE%\.purr\bin` on Windows).
-- Script-based packages are full git clones under `~/.fur/packages` so installers can run from the repo.
+- Script-based packages are full git clones under `~/.purr/packages` so installers can run from the repo.
 - `purr` does not automatically remove binaries from `~/.purr/bin` when uninstalling script-based packages; remove them manually if needed.

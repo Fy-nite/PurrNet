@@ -11,13 +11,15 @@ public class PackageManager
 {
     private readonly ApiService _apiService;
     private readonly string _packagesDirectory;
+    private readonly bool _verbose;
 
-    public PackageManager(string[]? repositoryUrls = null)
+    public PackageManager(string[]? repositoryUrls = null, bool verbose = false)
     {
         _apiService = repositoryUrls != null
             ? new ApiService(repositoryUrls)
             : new ApiService();
-        _packagesDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".fur", "packages");
+        _verbose = verbose;
+        _packagesDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr", "packages");
         Directory.CreateDirectory(_packagesDirectory);
     }
 
@@ -126,6 +128,22 @@ public class PackageManager
         Uri gitUri;
         try { gitUri = new Uri(packageInfo.Git); } catch { throw new Exception("Invalid Git URL"); }
 
+        // Resolve redirects so that short/vanity URLs (e.g. git.finite.ovh/meow → github.com/Fy-nite/meow) work
+        if (!gitUri.Host.Contains("github.com"))
+        {
+            try
+            {
+                using var resolveClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true });
+                resolveClient.DefaultRequestHeaders.UserAgent.ParseAdd("purr-cli/1.0");
+                resolveClient.Timeout = TimeSpan.FromSeconds(10);
+                // Use GET and only read headers so redirects are followed reliably by various hosts
+                var req = new HttpRequestMessage(HttpMethod.Get, gitUri);
+                var headResp = await resolveClient.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                gitUri = headResp.RequestMessage?.RequestUri ?? gitUri;
+            }
+            catch { /* ignore – keep original URI and let the check below throw if needed */ }
+        }
+
         // Only support github.com hosts for release downloads
         if (!gitUri.Host.Contains("github.com"))
             throw new Exception("Release asset download currently only supports GitHub repositories");
@@ -144,6 +162,9 @@ public class PackageManager
         string apiUrl = string.IsNullOrEmpty(packageInfo.Version) || packageInfo.Version == "latest"
             ? $"https://api.github.com/repos/{owner}/{repo}/releases/latest"
             : $"https://api.github.com/repos/{owner}/{repo}/releases/tags/{packageInfo.Version}";
+
+        if (_verbose)
+            Console.WriteLine($"[purr] GitHub API URL: {apiUrl}");
 
         var resp = await http.GetAsync(apiUrl);
         if (!resp.IsSuccessStatusCode)
@@ -177,6 +198,9 @@ public class PackageManager
             chosenUrl = first.GetProperty("browser_download_url").GetString();
         }
 
+        if (_verbose && !string.IsNullOrEmpty(chosenUrl))
+            Console.WriteLine($"[purr] Selected asset: {chosenName} -> {chosenUrl}");
+
         if (chosenUrl == null)
             throw new Exception("No suitable release asset found");
 
@@ -199,13 +223,32 @@ public class PackageManager
             var extractDir = Path.Combine(tmp, "ex");
             ZipFile.ExtractToDirectory(localPath, extractDir);
             // find candidate executables
-            var candidates = Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories)
-                .Where(f => (OperatingSystem.IsWindows() && f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) || (!OperatingSystem.IsWindows() && Path.GetExtension(f) == string.Empty))
-                .ToList();
-            if (candidates.Count == 0)
-                throw new Exception("No executable found inside zip asset");
+            var allFiles = Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories).ToList();
 
-            var exe = candidates[0];
+            // If package specifies a MainFile, try to find it (with or without extension)
+            string? mainFile = packageInfo.MainFile;
+            string? exe = null;
+            if (!string.IsNullOrEmpty(mainFile))
+            {
+                var candidatesByName = allFiles.Where(f => string.Equals(Path.GetFileName(f), mainFile, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(Path.GetFileNameWithoutExtension(f), mainFile, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (candidatesByName.Any())
+                    exe = candidatesByName.First();
+            }
+
+            if (exe == null)
+            {
+                var candidates = allFiles
+                    .Where(f => (OperatingSystem.IsWindows() && f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) || (!OperatingSystem.IsWindows() && Path.GetExtension(f) == string.Empty))
+                    .ToList();
+                if (candidates.Count == 0)
+                    throw new Exception("No executable found inside zip asset");
+
+                exe = candidates[0];
+            }
+
             var dest = Path.Combine(userBin, Path.GetFileName(exe));
             File.Copy(exe, dest, true);
             if (!OperatingSystem.IsWindows())
@@ -379,7 +422,7 @@ public class PackageManager
         });
     }
 
-    private static (string? command, string arguments) GetShellForScript(string extension, string scriptPath)
+    private (string? command, string arguments) GetShellForScript(string extension, string scriptPath)
     {
         return extension switch
         {
@@ -396,7 +439,7 @@ public class PackageManager
         };
     }
 
-    private static (string? command, string arguments) DetermineShellForExtensionlessScript(string scriptPath)
+    private (string? command, string arguments) DetermineShellForExtensionlessScript(string scriptPath)
     {
         // For extensionless scripts, try to read the shebang line
         try
@@ -433,7 +476,17 @@ public class PackageManager
         // Make the script executable and run it directly
         try
         {
-            RunCommandAsync("chmod", $"+x \"{scriptPath}\"").Wait();
+            // Attempt to make executable using a synchronous Process to avoid requiring async context here
+            var psi = new ProcessStartInfo
+            {
+                FileName = "chmod",
+                Arguments = $"+x \"{scriptPath}\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = false,
+                RedirectStandardError = false
+            };
+            var p = Process.Start(psi);
+            p?.WaitForExit();
             return (scriptPath, "");
         }
         catch
@@ -763,8 +816,20 @@ public class PackageManager
         return parts.Length == 2 ? (parts[0], parts[1]) : (parts[0], null);
     }
 
-    private static async Task RunCommandAsync(string command, string arguments, bool showOutput, Dictionary<string, string?>? extraEnv = null)
+    private async Task RunCommandAsync(string command, string arguments, bool showOutput, Dictionary<string, string?>? extraEnv = null)
     {
+        if (_verbose)
+        {
+            Console.WriteLine($"[purr] Running: {command} {arguments}");
+            if (extraEnv != null && extraEnv.Count > 0)
+            {
+                foreach (var kv in extraEnv)
+                {
+                    Console.WriteLine($"[purr]   ENV {kv.Key}={kv.Value}");
+                }
+            }
+        }
+
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -825,7 +890,7 @@ public class PackageManager
         }
     }
 
-    private static async Task RunCommandAsync(string command, string arguments)
+    private async Task RunCommandAsync(string command, string arguments)
     {
         await RunCommandAsync(command, arguments, showOutput: false, null);
     }

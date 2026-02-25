@@ -33,4 +33,7 @@ public class FurConfig
 
     [JsonPropertyName("categories")]
     public string[] Categories { get; set; } = Array.Empty<string>();
+
+        [JsonPropertyName("mainfile")]
+        public string? MainFile { get; set; }
 }

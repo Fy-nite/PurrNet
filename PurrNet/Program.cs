@@ -20,6 +20,7 @@ if (args.Length > 0 && args[0] == "--admin")
 
 // Load environment variables from .env file
 Env.Load();
+string version = "1.1.0";
 
 var builder = WebApplication.CreateBuilder(args);
 var basePath = Environment.GetEnvironmentVariable("BASE_PATH") ?? builder.Configuration["BasePath"] ?? "/purr";
@@ -314,7 +315,7 @@ app.MapGet("/Latest", async () =>
     }
     catch
     {
-        return Results.Text("1.0.0");
+        return Results.Text(version);
     }
 });
 

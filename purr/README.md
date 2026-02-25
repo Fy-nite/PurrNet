@@ -76,8 +76,8 @@ When you run `purr install <package>`, the following steps happen:
    - `purr` then checks whether `~/.purr/bin` is on your `PATH` and prints instructions if it is not (see [PATH Setup](#path-setup)).
 
    **B. Script-based install (has `installer` field)**  
-   - If a local clone already exists at `~/.fur/packages/<name>/.git`, `purr` fetches and checks out the requested version.  
-   - If no clone exists, `purr` runs `git clone <git-url> ~/.fur/packages/<name>` and checks out the requested version.  
+   - If a local clone already exists at `~/.purr/packages/<name>/.git`, `purr` fetches and checks out the requested version.  
+   - If no clone exists, `purr` runs `git clone <git-url> ~/.purr/packages/<name>` and checks out the requested version.  
    - The installer script (e.g. `install.sh`) is located at the root of the cloned repository and is executed.  
    - A `furconfig.json` metadata snapshot is written alongside the clone.
 
@@ -92,7 +92,7 @@ When you run `purr install <package>`, the following steps happen:
 └── bin/                      # Binaries installed from release assets
     └── <package-name>        # Executable (or .exe on Windows)
 
-~/.fur/
+~/.purr/
 └── packages/
     └── <package-name>/       # One directory per script-installed package
         ├── .git/             # Full git clone of the package's repository

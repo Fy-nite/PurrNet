@@ -23,26 +23,28 @@ namespace Fur
             }
 
             var rootCommand = new RootCommand("FUR - Finite User Repository Package Manager");
+            var verboseOption = new Option<bool>(new[] { "-v", "--verbose" }, "Verbose output (print commands and URLs)");
+            rootCommand.AddGlobalOption(verboseOption);
 
             // Install command
             var installCommand = new Command("install", "Install a package");
             var packageArg = new Argument<string>("package", "Package name with optional version (name@version)");
             installCommand.AddArgument(packageArg);
-            installCommand.SetHandler(async (string package) =>
+            installCommand.SetHandler(async (string package, bool verbose) =>
             {
-                var packageManager = new PackageManager(settings.RepositoryUrls);
+                var packageManager = new PackageManager(settings.RepositoryUrls, verbose);
                 await packageManager.InstallPackageAsync(package);
-            }, packageArg);
+            }, packageArg, verboseOption);
 
             // Search command
             var searchCommand = new Command("search", "Search for packages");
             var queryArg = new Argument<string>("query", "Search query");
             searchCommand.AddArgument(queryArg);
-            searchCommand.SetHandler(async (string query) =>
+            searchCommand.SetHandler(async (string query, bool verbose) =>
             {
-                var packageManager = new PackageManager(settings.RepositoryUrls);
+                var packageManager = new PackageManager(settings.RepositoryUrls, verbose);
                 await packageManager.SearchPackagesAsync(query);
-            }, queryArg);
+            }, queryArg, verboseOption);
 
             // List command
             var listCommand = new Command("list", "List all packages or filter by category");
@@ -50,9 +52,9 @@ namespace Fur
             var categoryOption = new Option<string>("--category", "Filter packages by category name");
             listCommand.AddOption(sortOption);
             listCommand.AddOption(categoryOption);
-            listCommand.SetHandler(async (string sort, string category) =>
+            listCommand.SetHandler(async (string sort, string category, bool verbose) =>
             {
-                var packageManager = new PackageManager(settings.RepositoryUrls);
+                var packageManager = new PackageManager(settings.RepositoryUrls, verbose);
                 if (!string.IsNullOrWhiteSpace(category))
                 {
                     await packageManager.ListPackagesByCategoryAsync(category);
@@ -61,7 +63,7 @@ namespace Fur
                 {
                     await packageManager.ListPackagesAsync(sort);
                 }
-            }, sortOption, categoryOption);
+            }, sortOption, categoryOption, verboseOption);
 
             // Info command
             var infoCommand = new Command("info", "Get package information");
@@ -69,69 +71,69 @@ namespace Fur
             var versionOption = new Option<string>("--version", "Specific version");
             infoCommand.AddArgument(infoPackageArg);
             infoCommand.AddOption(versionOption);
-            infoCommand.SetHandler(async (string package, string version) =>
+            infoCommand.SetHandler(async (string package, string version, bool verbose) =>
             {
-                var packageManager = new PackageManager(settings.RepositoryUrls);
+                var packageManager = new PackageManager(settings.RepositoryUrls, verbose);
                 await packageManager.GetPackageInfoAsync(package, version);
-            }, infoPackageArg, versionOption);
+            }, infoPackageArg, versionOption, verboseOption);
 
             // Stats command
             var statsCommand = new Command("stats", "Show repository statistics");
-            statsCommand.SetHandler(async () =>
+            statsCommand.SetHandler(async (bool verbose) =>
             {
-                var packageManager = new PackageManager(settings.RepositoryUrls);
+                var packageManager = new PackageManager(settings.RepositoryUrls, verbose);
                 await packageManager.ShowStatisticsAsync();
-            });
+            }, verboseOption);
 
             // Update command
             var updateCommand = new Command("update", "Update an installed package");
             var updatePackageArg = new Argument<string>("package", "Package name to update");
             updateCommand.AddArgument(updatePackageArg);
-            updateCommand.SetHandler(async (string package) =>
+            updateCommand.SetHandler(async (string package, bool verbose) =>
             {
-                var packageManager = new PackageManager();
+                var packageManager = new PackageManager(settings.RepositoryUrls, verbose);
                 await packageManager.UpdatePackageAsync(package);
-            }, updatePackageArg);
+            }, updatePackageArg, verboseOption);
 
             // Upgrade command
             var upgradeCommand = new Command("upgrade", "Upgrade a package to a specific version");
             var upgradeArg = new Argument<string>("package", "Package name with optional version (name@version)");
             upgradeCommand.AddArgument(upgradeArg);
-            upgradeCommand.SetHandler(async (string package) =>
+            upgradeCommand.SetHandler(async (string package, bool verbose) =>
             {
-                var packageManager = new PackageManager(settings.RepositoryUrls);
+                var packageManager = new PackageManager(settings.RepositoryUrls, verbose);
                 await packageManager.UpgradePackageAsync(package);
-            }, upgradeArg);
+            }, upgradeArg, verboseOption);
 
             // Downgrade command
             var downgradeCommand = new Command("downgrade", "Downgrade a package to a specific version");
             var downgradeArg = new Argument<string>("package", "Package name with version (name@version)");
             downgradeCommand.AddArgument(downgradeArg);
-            downgradeCommand.SetHandler(async (string package) =>
+            downgradeCommand.SetHandler(async (string package, bool verbose) =>
             {
-                var packageManager = new PackageManager(settings.RepositoryUrls);
+                var packageManager = new PackageManager(settings.RepositoryUrls, verbose);
                 await packageManager.DowngradePackageAsync(package);
-            }, downgradeArg);
+            }, downgradeArg, verboseOption);
 
             // Versions command
             var versionsCommand = new Command("versions", "List available versions of a package");
             var versionsArg = new Argument<string>("package", "Package name");
             versionsCommand.AddArgument(versionsArg);
-            versionsCommand.SetHandler(async (string package) =>
+            versionsCommand.SetHandler(async (string package, bool verbose) =>
             {
-                var packageManager = new PackageManager(settings.RepositoryUrls);
+                var packageManager = new PackageManager(settings.RepositoryUrls, verbose);
                 await packageManager.ListVersionsAsync(package);
-            }, versionsArg);
+            }, versionsArg, verboseOption);
 
             // Uninstall command
             var uninstallCommand = new Command("uninstall", "Uninstall a package");
             var uninstallArg = new Argument<string>("package", "Package name");
             uninstallCommand.AddArgument(uninstallArg);
-            uninstallCommand.SetHandler(async (string package) =>
+            uninstallCommand.SetHandler(async (string package, bool verbose) =>
             {
-                var packageManager = new PackageManager(settings.RepositoryUrls);
+                var packageManager = new PackageManager(settings.RepositoryUrls, verbose);
                 await packageManager.UninstallPackageAsync(package);
-            }, uninstallArg);
+            }, uninstallArg, verboseOption);
 
             rootCommand.AddCommand(installCommand);
             rootCommand.AddCommand(searchCommand);

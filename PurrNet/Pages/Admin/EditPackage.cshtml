@@ -89,6 +89,12 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label fw-semibold">Main File <span class="text-muted">(optional)</span></label>
+                                <input type="text" name="MainFile" class="form-control" value="@Model.Package.MainFile" placeholder="main executable name (e.g. mytool or mytool.exe)" />
+                                <div class="form-text">Name of the main executable inside release assets. Provide with or without extension.</div>
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label fw-semibold">Dependencies <span class="text-muted">(comma-separated)</span></label>
                                 <input type="text" name="Dependencies" class="form-control" value="@string.Join(", ", Model.Package.Dependencies)" />
                             </div>

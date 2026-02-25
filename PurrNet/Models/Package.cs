@@ -66,6 +66,9 @@ namespace Purrnet.Models
         public string IconUrl { get; set; } = string.Empty;
         public List<string> VersionHistory { get; set; } = new();
 
+        // Optional: main executable/file name inside release assets (without or with extension)
+        public string? MainFile { get; set; }
+
         // Package approval system
         public string ApprovalStatus { get; set; } = "Pending"; // Default to Approved for backward compatibility
         public int? OwnerId { get; set; }
@@ -171,6 +174,9 @@ namespace Purrnet.Models
 
         [JsonPropertyName("icon_url")]
         public string IconUrl { get; set; } = string.Empty;
+        
+        [JsonPropertyName("mainfile")]
+        public string? MainFile { get; set; }
     }
 
     public class PackageListResponse

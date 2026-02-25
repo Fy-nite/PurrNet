@@ -106,6 +106,7 @@ namespace Purrnet.Services
                     IssueTracker = PurrConfig.IssueTracker ?? string.Empty,
                     Git = PurrConfig.Git,
                     Installer = PurrConfig.Installer ?? string.Empty,
+                    MainFile = PurrConfig.MainFile,
                     Dependencies = PurrConfig.Dependencies ?? new List<string>(),
                     IconUrl = PurrConfig.IconUrl ?? string.Empty,
                     InstallCommand = $"Purr install {PurrConfig.Name}",
@@ -200,6 +201,7 @@ namespace Purrnet.Services
                 package.IssueTracker = PurrConfig.IssueTracker ?? string.Empty;
                 package.Git = PurrConfig.Git;
                 package.Installer = PurrConfig.Installer ?? string.Empty;
+                package.MainFile = PurrConfig.MainFile;
                 package.Dependencies = PurrConfig.Dependencies ?? new List<string>();
                 package.IconUrl = PurrConfig.IconUrl ?? string.Empty;
                 // Update categories relationally and as legacy list
@@ -392,6 +394,7 @@ namespace Purrnet.Services
                     Git = p.Git,
                     Installer = p.Installer,
                     Dependencies = p.Dependencies,
+                    MainFile = p.MainFile,
                     IconUrl = p.IconUrl
                 }).ToList();
             }

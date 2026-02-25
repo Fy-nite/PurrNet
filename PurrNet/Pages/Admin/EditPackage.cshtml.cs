@@ -42,6 +42,7 @@ namespace Purrnet.Pages.Admin
             string? Homepage,
             string? IssueTracker,
             string? Installer,
+            string? MainFile,
             string? Dependencies,
             string? Categories,
             string? License,
@@ -74,7 +75,8 @@ namespace Purrnet.Pages.Admin
                 Categories = Split(Categories),
                 License = License ?? string.Empty,
                 SupportedPlatforms = Split(SupportedPlatforms),
-                IconUrl = IconUrl?.Trim() ?? string.Empty
+                IconUrl = IconUrl?.Trim() ?? string.Empty,
+                MainFile = MainFile?.Trim()
             };
 
             var updatedBy = User.Identity?.Name ?? "admin";
