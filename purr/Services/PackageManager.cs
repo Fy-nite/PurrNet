@@ -884,44 +884,93 @@ public class PackageManager
 
     public async Task UninstallPackageAsync(string packageName)
     {
-        var packageDir = Path.Combine(_packagesDirectory, packageName);
-        if (!Directory.Exists(packageDir))
+        var packageDir = Path.Combine(_packagesDirectory, packageName); // convention: cloned git repos go in packages/{packageName}
+        var config = Path.Combine(packageDir, "furconfig.json");
+        // If a cloned package exists, run uninstall script if present and remove the directory
+        if (Directory.Exists(packageDir))
         {
-            ConsoleHelper.WriteWarning($"Package '{packageName}' is not installed");
-            return;
-        }
-
-        // Run uninstall script if present
-        var configPath = Path.Combine(packageDir, "furconfig.json");
-        if (File.Exists(configPath))
-        {
-            var configJson = await File.ReadAllTextAsync(configPath);
-            var packageInfo = JsonSerializer.Deserialize<FurConfig>(configJson);
-            if (packageInfo != null && !string.IsNullOrEmpty(packageInfo.Installer))
+            var configPath = Path.Combine(packageDir, "furconfig.json");
+            if (File.Exists(configPath))
             {
-                var uninstallScript = packageInfo.Installer.Replace("install", "uninstall");
-                var uninstallPath = Path.Combine(packageDir, uninstallScript);
-                if (File.Exists(uninstallPath))
+                try
                 {
-                    ConsoleHelper.WriteStep("Running", uninstallScript);
-                    try
+                    var configJson = await File.ReadAllTextAsync(configPath);
+                    var packageInfo = JsonSerializer.Deserialize<FurConfig>(configJson);
+                    if (packageInfo != null && !string.IsNullOrEmpty(packageInfo.Installer))
                     {
-                        await RunInstallerScript(uninstallPath, showOutput: true);
-                        ConsoleHelper.WriteSuccess("Uninstaller completed successfully");
+                        var uninstallScript = packageInfo.Installer.Replace("install", "uninstall");
+                        var uninstallPath = Path.Combine(packageDir, uninstallScript);
+                        if (File.Exists(uninstallPath))
+                        {
+                            ConsoleHelper.WriteStep("Running", uninstallScript);
+                            try
+                            {
+                                await RunInstallerScript(uninstallPath, showOutput: true);
+                                ConsoleHelper.WriteSuccess("Uninstaller completed successfully");
+                            }
+                            catch (Exception ex)
+                            {
+                                ConsoleHelper.WriteError($"Uninstaller failed: {ex.Message}");
+                            }
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        ConsoleHelper.WriteError($"Uninstaller failed: {ex.Message}");
-                    }
+                }
+                catch
+                {
+                    // ignore malformed config
+                }
+
+                try
+                {
+                    Directory.Delete(packageDir, true);
+                    ConsoleHelper.WriteSuccess($"Removed package directory {packageDir}");
+                }
+                catch (Exception ex)
+                {
+                    ConsoleHelper.WriteError($"Failed to remove package directory: {ex.Message}");
                 }
             }
         }
 
-        // Remove package directory
+        // Regardless of whether a package dir existed, try to remove installed binaries/shims from user bin
         try
         {
-            Directory.Delete(packageDir, true);
-            ConsoleHelper.WriteSuccess($"Uninstalled {packageName}");
+            var userBin = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr", "bin");
+            var removedAny = false;
+
+            // candidate filenames to remove: exact name, name.exe, name.pdb
+            var candidates = new List<string> { packageName };
+            if (OperatingSystem.IsWindows()) candidates.Add(packageName + ".exe");
+            else candidates.Add(packageName);
+            candidates.Add(packageName + ".pdb");
+
+            foreach (var c in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var path = Path.Combine(userBin, c);
+                try
+                {
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                        if (_verbose) Console.WriteLine($"[purr] Deleted {path}");
+                        removedAny = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ConsoleHelper.WriteWarning($"Could not remove {path}: {ex.Message}");
+                }
+            }
+
+            if (removedAny)
+            {
+                ConsoleHelper.WriteSuccess($"Uninstalled {packageName}");
+                return;
+            }
+            else
+            {
+                ConsoleHelper.WriteWarning($"Package '{packageName}' is not installed");
+            }
         }
         catch (Exception ex)
         {
