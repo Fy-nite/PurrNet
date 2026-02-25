@@ -62,6 +62,19 @@ if (Test-Path $envSrc) {
     Write-Host "No .env found to copy"
 }
 
+# Backup SQLite DB from /srv to /data with timestamped filename
+$dbSrc = "/srv/Purrnet.db"
+if (Test-Path $dbSrc) {
+    $bakDate = Get-Date -Format "yyyyMMddHHmmss"
+    $dbDestDir = "/data/purrnet"
+    $dbDest = Join-Path -Path $dbDestDir -ChildPath ("Purrnet_bak" + $bakDate + ".db")
+    Write-Host "Backing up database $dbSrc -> $dbDest (may prompt for sudo)..."
+    & sudo bash -lc "mkdir -p '$dbDestDir' && cp -a '$dbSrc' '$dbDest'"
+    ExitIfError $LASTEXITCODE "Failed to backup $dbSrc to $dbDest"
+} else {
+    Write-Host "No database at $dbSrc to back up"
+}
+
 Write-Host "Published to $OutputDir"
 
 # Start the service again only if it was running before publishing
