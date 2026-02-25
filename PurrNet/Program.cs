@@ -20,7 +20,8 @@ if (args.Length > 0 && args[0] == "--admin")
 
 // Load environment variables from .env file
 Env.Load();
-string version = "1.2.0";
+
+string version = "1.2.1";
 
 var builder = WebApplication.CreateBuilder(args);
 var basePath = Environment.GetEnvironmentVariable("BASE_PATH") ?? builder.Configuration["BasePath"] ?? "/purr";
