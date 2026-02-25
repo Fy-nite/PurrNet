@@ -283,28 +283,51 @@ public class PackageManager
             // find candidate executables
             var allFiles = Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories).ToList();
 
-            // If package specifies a MainFile, try to find it (with or without extension)
+            // Filter helper: exclude obvious non-executables (debug / metadata files)
+            var excludedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ".pdb", ".xml", ".json", ".md", ".txt", ".sha256", ".sha1", ".symbols", ".nupkg", ".nuspec"
+            };
+
+            // If package specifies a MainFile, try to find it (with preference order)
             string? mainFile = packageInfo.MainFile;
             string? exe = null;
             if (!string.IsNullOrEmpty(mainFile))
             {
-                var candidatesByName = allFiles.Where(f => string.Equals(Path.GetFileName(f), mainFile, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(Path.GetFileNameWithoutExtension(f), mainFile, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                // Try exact filename first
+                var exact = allFiles.Where(f => string.Equals(Path.GetFileName(f), mainFile, StringComparison.OrdinalIgnoreCase)).ToList();
+                // Then filename without extension
+                var withoutExt = allFiles.Where(f => string.Equals(Path.GetFileNameWithoutExtension(f), mainFile, StringComparison.OrdinalIgnoreCase)).ToList();
 
-                if (candidatesByName.Any())
-                    exe = candidatesByName.First();
+                var nameMatches = exact.Concat(withoutExt).Distinct().ToList();
+                // Exclude debug/artifact files
+                nameMatches = nameMatches.Where(f => !excludedExtensions.Contains(Path.GetExtension(f))).ToList();
+
+                // Prefer extensionless (likely native), then .exe, then other
+                exe = nameMatches.OrderBy(f => Path.GetExtension(f).Length == 0 ? 0 : Path.GetExtension(f).Equals(".exe", StringComparison.OrdinalIgnoreCase) ? 1 : 2).FirstOrDefault();
             }
 
             if (exe == null)
             {
+                // Build candidate list: extensionless files, executables, scripts
                 var candidates = allFiles
-                    .Where(f => (OperatingSystem.IsWindows() && f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) || (!OperatingSystem.IsWindows() && Path.GetExtension(f) == string.Empty))
+                    .Where(f => !excludedExtensions.Contains(Path.GetExtension(f)))
+                    .Where(f =>
+                        // Windows executables
+                        (OperatingSystem.IsWindows() && Path.GetExtension(f).Equals(".exe", StringComparison.OrdinalIgnoreCase))
+                        // Unix: no extension or common script extensions
+                        || (!OperatingSystem.IsWindows() && string.IsNullOrEmpty(Path.GetExtension(f)))
+                        || Path.GetExtension(f).Equals(".sh", StringComparison.OrdinalIgnoreCase)
+                        || Path.GetExtension(f).Equals(".bin", StringComparison.OrdinalIgnoreCase)
+                        || Path.GetExtension(f).Equals(".run", StringComparison.OrdinalIgnoreCase)
+                    )
                     .ToList();
+
                 if (candidates.Count == 0)
                     throw new Exception("No executable found inside zip asset");
 
-                exe = candidates[0];
+                // Prefer extensionless, then .exe, then .sh, then others
+                exe = candidates.OrderBy(f => string.IsNullOrEmpty(Path.GetExtension(f)) ? 0 : Path.GetExtension(f).Equals(".exe", StringComparison.OrdinalIgnoreCase) ? 1 : Path.GetExtension(f).Equals(".sh", StringComparison.OrdinalIgnoreCase) ? 2 : 3).First();
             }
 
             var dest = Path.Combine(userBin, Path.GetFileName(exe));
