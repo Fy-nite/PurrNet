@@ -1,6 +1,6 @@
 # Purr API Documentation
 
-Base URL: `http://testing.finite.ovh:8080/api/v1` (Testing) | `https://your-domain.com/api/v1` (Production)
+Base URL: `http://testing.finite.ovh:8080/api/v1` (Testing) | `https://purr.finite.ovh/api/v1` (Production)
 
 ## Authentication
 

@@ -1,3 +1,4 @@
+
 namespace Purrnet.Extensions
 {
     public static class StringExtensions

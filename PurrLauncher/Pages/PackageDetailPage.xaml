@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PurrLauncher.ViewModels"
+             xmlns:conv="clr-namespace:PurrLauncher.Converters"
+             x:Class="PurrLauncher.Pages.PackageDetailPage"
+             Title="{Binding Title}">
+
+    <ContentPage.Resources>
+        <conv:NotNullConverter x:Key="NotNull" />
+        <conv:NotNullOrEmptyConverter x:Key="NotNullOrEmpty" />
+        <conv:InverseBoolConverter x:Key="InverseBool" />
+    </ContentPage.Resources>
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <!-- Loading state -->
+            <ActivityIndicator IsRunning="{Binding IsBusy}"
+                               IsVisible="{Binding IsBusy}"
+                               HorizontalOptions="Center"
+                               Margin="0,40" />
+
+            <!-- All package content (hidden while loading) -->
+            <VerticalStackLayout IsVisible="{Binding HasPackage}" Spacing="14">
+
+                <!-- ── Header card ───────────────────────────────────── -->
+                <Border Padding="20"
+                        BackgroundColor="{StaticResource Purrple}"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 16">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+
+                        <Label Grid.Row="0" Grid.Column="0"
+                               Text="{Binding Package.Name}"
+                               FontSize="26"
+                               FontAttributes="Bold"
+                               TextColor="White" />
+
+                        <!-- Installed badge (Windows only) -->
+                        <Border Grid.Row="0" Grid.Column="1"
+                                BackgroundColor="#22ffffff"
+                                Padding="8,4"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 8"
+                                VerticalOptions="Center"
+                                IsVisible="{Binding ShowUninstallButton}">
+                            <Label Text="Installed" TextColor="White" FontSize="11" FontAttributes="Bold" />
+                        </Border>
+
+                        <Label Grid.Row="1" Grid.ColumnSpan="2"
+                               Text="{Binding Package.Version, StringFormat='v{0}'}"
+                               TextColor="#DFD8F7"
+                               FontSize="13"
+                               Margin="0,4,0,0" />
+
+                        <Label Grid.Row="2" Grid.ColumnSpan="2"
+                               Text="{Binding Package.AuthorsDisplay, StringFormat='by {0}'}"
+                               TextColor="#DFD8F7"
+                               FontSize="13" />
+                    </Grid>
+                </Border>
+
+                <!-- ── Desktop warning banner (Android only) ──────── -->
+                <Border Padding="14,10"
+                        BackgroundColor="#FEF3C7"
+                        StrokeThickness="1"
+                        Stroke="#F59E0B"
+                        StrokeShape="RoundRectangle 12"
+                        IsVisible="{Binding ShowDesktopWarning}">
+                    <HorizontalStackLayout Spacing="10">
+                        <Label Text="⚠️" FontSize="22" VerticalOptions="Center" />
+                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                            <Label Text="Desktop Application"
+                                   TextColor="#92400E"
+                                   FontSize="13"
+                                   FontAttributes="Bold" />
+                            <Label Text="This app was built for desktop platforms and may not work correctly on Android."
+                                   TextColor="#92400E"
+                                   FontSize="12"
+                                   LineHeight="1.3" />
+                        </VerticalStackLayout>
+                    </HorizontalStackLayout>
+                </Border>
+
+                <!-- ── Description ───────────────────────────────────── -->
+                <Border Padding="16" StrokeShape="RoundRectangle 12">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="About"
+                               TextColor="{StaticResource Purrple}"
+                               FontSize="12"
+                               FontAttributes="Bold"
+                               CharacterSpacing="1" />
+                        <Label Text="{Binding Package.Description}"
+                               FontSize="14"
+                               LineHeight="1.4" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ── Meta row ──────────────────────────────────────── -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+
+                    <Border Grid.Column="0" Padding="14" StrokeShape="RoundRectangle 12">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Categories"
+                                   TextColor="{StaticResource Purrple}"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   CharacterSpacing="1" />
+                            <Label Text="{Binding Package.CategoriesDisplay}"
+                                   FontSize="13" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Column="1" Padding="14" StrokeShape="RoundRectangle 12">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="Dependencies"
+                                   TextColor="{StaticResource Purrple}"
+                                   FontSize="11"
+                                   FontAttributes="Bold"
+                                   CharacterSpacing="1" />
+                            <Label Text="{Binding Package.DependenciesDisplay}"
+                                   FontSize="13" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                </Grid>
+
+                <!-- ── Primary action button ─────────────────────────── -->
+                <Button Text="{Binding ActionButtonText}"
+                        Command="{Binding InstallOrGetCommand}"
+                        IsEnabled="{Binding CanInteract}"
+                        HorizontalOptions="Fill"
+                        HeightRequest="52"
+                        FontSize="16"
+                        FontAttributes="Bold"
+                        CornerRadius="12" />
+
+                <!-- Uninstall button (Windows only, shown when installed) -->
+                <Button Text="🗑  Uninstall"
+                        Command="{Binding UninstallCommand}"
+                        IsEnabled="{Binding CanInteract}"
+                        BackgroundColor="#DC2626"
+                        IsVisible="{Binding ShowUninstallButton}"
+                        HorizontalOptions="Fill"
+                        HeightRequest="48"
+                        FontSize="15"
+                        CornerRadius="12" />
+
+                <!-- Status message -->
+                <Label Text="{Binding StatusMessage}"
+                       IsVisible="{Binding HasStatus}"
+                       FontSize="13"
+                       HorizontalOptions="Center"
+                       HorizontalTextAlignment="Center"
+                       Margin="0,4" />
+
+                <!-- Install progress indicator -->
+                <ActivityIndicator IsRunning="{Binding IsInstalling}"
+                                   IsVisible="{Binding IsInstalling}"
+                                   HorizontalOptions="Center" />
+
+                <!-- Output log (Windows, shown during/after install) -->
+                <Border Padding="12"
+                        StrokeShape="RoundRectangle 10"
+                        IsVisible="{Binding OutputLog, Converter={StaticResource NotNullOrEmpty}}">
+                    <ScrollView HeightRequest="160">
+                        <Label Text="{Binding OutputLog}"
+                               FontFamily="Courier New"
+                               FontSize="11"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+                    </ScrollView>
+                </Border>
+
+                <!-- ── Link buttons ──────────────────────────────────── -->
+                <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+
+                    <Button Text="🌐 Homepage"
+                            Command="{Binding OpenHomepageCommand}"
+                            IsVisible="{Binding Package.HasHomepage}"
+                            BackgroundColor="Transparent"
+                            TextColor="{StaticResource Purrple}"
+                            BorderColor="{StaticResource Purrple}"
+                            BorderWidth="1"
+                            CornerRadius="8"
+                            Padding="14,8"
+                            FontSize="13" />
+
+                    <Button Text="🚀 Releases"
+                            Command="{Binding OpenReleasesCommand}"
+                            IsVisible="{Binding Package.HasGit}"
+                            BackgroundColor="Transparent"
+                            TextColor="{StaticResource Purrple}"
+                            BorderColor="{StaticResource Purrple}"
+                            BorderWidth="1"
+                            CornerRadius="8"
+                            Padding="14,8"
+                            FontSize="13" />
+
+                </HorizontalStackLayout>
+
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

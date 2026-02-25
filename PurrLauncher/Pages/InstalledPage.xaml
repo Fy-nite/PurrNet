@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PurrLauncher.ViewModels"
+             xmlns:models="clr-namespace:PurrLauncher.Models"
+             x:Class="PurrLauncher.Pages.InstalledPage"
+             Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- Toolbar row -->
+        <Grid Grid.Row="0"
+              ColumnDefinitions="*,Auto"
+              Padding="16,12,16,4">
+            <Label Grid.Column="0"
+                   Text="{Binding InstalledPackages.Count, StringFormat='{0} packages installed'}"
+                   FontSize="13"
+                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                   VerticalOptions="Center" />
+            <Button Grid.Column="1"
+                    Text="⟳ Refresh"
+                    Command="{Binding RefreshCommand}"
+                    BackgroundColor="Transparent"
+                    TextColor="{StaticResource Purrple}"
+                    BorderColor="{StaticResource Purrple}"
+                    BorderWidth="1"
+                    CornerRadius="8"
+                    Padding="12,6"
+                    FontSize="13" />
+        </Grid>
+
+        <!-- Installed packages list -->
+        <CollectionView Grid.Row="1"
+                        ItemsSource="{Binding InstalledPackages}">
+
+            <CollectionView.EmptyView>
+                <VerticalStackLayout HorizontalOptions="Center"
+                                     VerticalOptions="Center"
+                                     Spacing="12"
+                                     Margin="32">
+                    <Label Text="📦" FontSize="52" HorizontalOptions="Center" />
+                    <Label Text="No packages installed"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center" />
+                    <Label Text="Install packages from the Browse tab"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                           FontSize="13"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="models:InstalledPackage">
+                    <Border Margin="12,4"
+                            Padding="16"
+                            StrokeShape="RoundRectangle 12"
+                            StrokeThickness="1"
+                            Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+
+                            <!-- Name -->
+                            <Label Grid.Row="0" Grid.Column="0"
+                                   Text="{Binding Name}"
+                                   FontAttributes="Bold"
+                                   FontSize="16" />
+
+                            <!-- Version badge -->
+                            <Border Grid.Row="0" Grid.Column="1"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource PurrpleLight}, Dark={StaticResource PurrpleLightDark}}"
+                                    Padding="6,2"
+                                    StrokeThickness="0"
+                                    StrokeShape="RoundRectangle 6"
+                                    VerticalOptions="Center">
+                                <Label Text="{Binding Version}"
+                                       TextColor="{StaticResource Purrple}"
+                                       FontSize="11"
+                                       FontAttributes="Bold" />
+                            </Border>
+
+                            <!-- Install path -->
+                            <Label Grid.Row="1" Grid.ColumnSpan="2"
+                                   Text="{Binding InstallPath}"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
+                                   FontSize="11"
+                                   LineBreakMode="MiddleTruncation" />
+
+                            <!-- Installed date + action buttons -->
+                            <Label Grid.Row="2" Grid.Column="0"
+                                   Text="{Binding InstalledAtDisplay, StringFormat='Installed {0}'}"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                                   FontSize="11"
+                                   VerticalOptions="Center" />
+
+                            <HorizontalStackLayout Grid.Row="2" Grid.Column="1"
+                                                   Spacing="6">
+                                <!-- Open folder -->
+                                <Button Text="📂"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.OpenFolderCommand}"
+                                        CommandParameter="{Binding .}"
+                                        BackgroundColor="Transparent"
+                                        TextColor="{StaticResource Purrple}"
+                                        Padding="6,2"
+                                        FontSize="16"
+                                        HeightRequest="36"
+                                        MinimumHeightRequest="36" />
+                                <!-- Uninstall -->
+                                <Button Text="🗑"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.UninstallCommand}"
+                                        CommandParameter="{Binding .}"
+                                        BackgroundColor="Transparent"
+                                        TextColor="#DC2626"
+                                        Padding="6,2"
+                                        FontSize="16"
+                                        HeightRequest="36"
+                                        MinimumHeightRequest="36" />
+                            </HorizontalStackLayout>
+
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+
+        </CollectionView>
+
+        <!-- Busy indicator -->
+        <ActivityIndicator Grid.Row="2"
+                           IsRunning="{Binding IsBusy}"
+                           IsVisible="{Binding IsBusy}"
+                           HorizontalOptions="Center"
+                           Margin="0,8" />
+
+    </Grid>
+</ContentPage>

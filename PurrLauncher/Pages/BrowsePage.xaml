@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PurrLauncher.ViewModels"
+             xmlns:models="clr-namespace:PurrLauncher.Models"
+             xmlns:conv="clr-namespace:PurrLauncher.Converters"
+             x:Class="PurrLauncher.Pages.BrowsePage"
+             Title="{Binding Title}">
+
+    <ContentPage.Resources>
+        <conv:NotNullOrEmptyConverter x:Key="NotNullOrEmpty" />
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*">
+
+        <!-- Android-only: Mobile / Desktop tab switcher -->
+        <Border Grid.Row="0"
+                Margin="12,10,12,0"
+                Padding="4"
+                BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 12"
+                IsVisible="{Binding IsAndroidMode}">
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
+
+                <!-- Mobile tab -->
+                <Border Grid.Column="0"
+                        Padding="0,8"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 9"
+                        BackgroundColor="{Binding MobileTabSelected, Converter={StaticResource NotNullOrEmpty}}">
+                    <!-- Use a tap gesture instead of Button to avoid double-highlight -->
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ShowMobileTabCommand}" />
+                    </Border.GestureRecognizers>
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border"
+                                     Binding="{Binding MobileTabSelected}"
+                                     Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource Purrple}" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="Border"
+                                     Binding="{Binding MobileTabSelected}"
+                                     Value="False">
+                            <Setter Property="BackgroundColor" Value="Transparent" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="5">
+                        <Label Text="📱"  FontSize="14" VerticalOptions="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding MobileTabSelected}" Value="True">
+                                    <Setter Property="TextColor" Value="White" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Label" Binding="{Binding MobileTabSelected}" Value="False">
+                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                        <Label Text="Mobile" FontSize="13" FontAttributes="Bold" VerticalOptions="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding MobileTabSelected}" Value="True">
+                                    <Setter Property="TextColor" Value="White" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Label" Binding="{Binding MobileTabSelected}" Value="False">
+                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                    </HorizontalStackLayout>
+                </Border>
+
+                <!-- Desktop tab -->
+                <Border Grid.Column="1"
+                        Padding="0,8"
+                        StrokeThickness="0"
+                        StrokeShape="RoundRectangle 9">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ShowDesktopTabCommand}" />
+                    </Border.GestureRecognizers>
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border"
+                                     Binding="{Binding DesktopTabSelected}"
+                                     Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource Purrple}" />
+                        </DataTrigger>
+                        <DataTrigger TargetType="Border"
+                                     Binding="{Binding DesktopTabSelected}"
+                                     Value="False">
+                            <Setter Property="BackgroundColor" Value="Transparent" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <HorizontalStackLayout HorizontalOptions="Center" Spacing="5">
+                        <Label Text="🖥" FontSize="14" VerticalOptions="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding DesktopTabSelected}" Value="True">
+                                    <Setter Property="TextColor" Value="White" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Label" Binding="{Binding DesktopTabSelected}" Value="False">
+                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                        <Label Text="Desktop" FontSize="13" FontAttributes="Bold" VerticalOptions="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding DesktopTabSelected}" Value="True">
+                                    <Setter Property="TextColor" Value="White" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Label" Binding="{Binding DesktopTabSelected}" Value="False">
+                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                    </HorizontalStackLayout>
+                </Border>
+
+            </Grid>
+        </Border>
+
+        <!-- Android-only info banner (changes text based on active tab) -->
+        <Border Grid.Row="1"
+                Padding="12,7"
+                Margin="12,6,12,0"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 10"
+                IsVisible="{Binding IsAndroidMode}">
+            <Border.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding ShowingDesktop}" Value="False">
+                    <Setter Property="BackgroundColor" Value="{StaticResource Purrple}" />
+                </DataTrigger>
+                <DataTrigger TargetType="Border" Binding="{Binding ShowingDesktop}" Value="True">
+                    <Setter Property="BackgroundColor" Value="#B45309" />
+                </DataTrigger>
+            </Border.Triggers>
+            <Label Text="{Binding ActiveBannerText}"
+                   TextColor="White"
+                   FontSize="13"
+                   HorizontalOptions="Center" />
+        </Border>
+
+        <!-- Search bar -->
+        <SearchBar Grid.Row="2"
+                   x:Name="SearchBar"
+                   Text="{Binding SearchQuery}"
+                   SearchCommand="{Binding SearchCommand}"
+                   Placeholder="Search packages…"
+                   Margin="12,8" />
+
+        <!-- Package list with pull-to-refresh -->
+        <RefreshView Grid.Row="3"
+                     Command="{Binding LoadPackagesCommand}"
+                     IsRefreshing="{Binding IsBusy}">
+
+            <CollectionView x:Name="PackagesList"
+                            ItemsSource="{Binding Packages}"
+                            SelectionMode="Single"
+                            SelectionChanged="OnSelectionChanged">
+
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout HorizontalOptions="Center"
+                                         VerticalOptions="Center"
+                                         Spacing="12"
+                                         Margin="32">
+                        <Label Text="🐱" FontSize="52" HorizontalOptions="Center" />
+                        <Label Text="No packages found"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               HorizontalOptions="Center" />
+                        <Label Text="Try a different search or pull down to refresh"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                               FontSize="13"
+                               HorizontalTextAlignment="Center"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:PackageInfo">
+                        <Border Margin="12,4"
+                                Padding="16"
+                                StrokeShape="RoundRectangle 12"
+                                StrokeThickness="1"
+                                Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                            <Grid ColumnDefinitions="*,Auto"
+                                  RowDefinitions="Auto,Auto,Auto,Auto">
+
+                                <!-- Package name -->
+                                <Label Grid.Row="0" Grid.Column="0"
+                                       Text="{Binding Name}"
+                                       FontAttributes="Bold"
+                                       FontSize="16" />
+
+                                <!-- Version badge -->
+                                <Border Grid.Row="0" Grid.Column="1"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource PurrpleLight}, Dark={StaticResource PurrpleLightDark}}"
+                                        Padding="6,2"
+                                        StrokeThickness="0"
+                                        StrokeShape="RoundRectangle 6"
+                                        VerticalOptions="Center">
+                                    <Label Text="{Binding Version}"
+                                           TextColor="{StaticResource Purrple}"
+                                           FontSize="11"
+                                           FontAttributes="Bold" />
+                                </Border>
+
+                                <!-- Desktop warning pill (visible only on flagged packages) -->
+                                <Border Grid.Row="1" Grid.ColumnSpan="2"
+                                        BackgroundColor="#FEF3C7"
+                                        Padding="8,3"
+                                        Margin="0,5,0,0"
+                                        StrokeThickness="1"
+                                        Stroke="#F59E0B"
+                                        StrokeShape="RoundRectangle 6"
+                                        HorizontalOptions="Start"
+                                        IsVisible="{Binding IsDesktopWarning}">
+                                    <Label Text="⚠️ Desktop – may not work on Android"
+                                           TextColor="#92400E"
+                                           FontSize="10"
+                                           FontAttributes="Bold" />
+                                </Border>
+
+                                <!-- Description -->
+                                <Label Grid.Row="2" Grid.ColumnSpan="2"
+                                       Text="{Binding Description}"
+                                       TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                                       FontSize="13"
+                                       MaxLines="2"
+                                       LineBreakMode="TailTruncation"
+                                       Margin="0,4,0,0" />
+
+                                <!-- Authors + categories row -->
+                                <HorizontalStackLayout Grid.Row="3" Grid.ColumnSpan="2"
+                                                       Spacing="6"
+                                                       Margin="0,6,0,0">
+                                    <Label Text="{Binding AuthorsDisplay}"
+                                           TextColor="{StaticResource Purrple}"
+                                           FontSize="11" />
+                                    <Label Text="·"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                                           FontSize="11" />
+                                    <Label Text="{Binding CategoriesDisplay}"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
+                                           FontSize="11" />
+                                </HorizontalStackLayout>
+
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+
+            </CollectionView>
+        </RefreshView>
+
+    </Grid>
+</ContentPage>
