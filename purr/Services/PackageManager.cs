@@ -174,28 +174,86 @@ public class PackageManager
         if (!doc.RootElement.TryGetProperty("assets", out var assets) || assets.GetArrayLength() == 0)
             throw new Exception("No release assets found");
 
-        // Choose an asset that appears to match the current OS
-        string? chosenUrl = null;
-        string? chosenName = null;
-        var os = OperatingSystem.IsWindows() ? "windows" : OperatingSystem.IsMacOS() ? "mac" : "linux";
+        // Prefer assets matching dotnet RID-style patterns (os-arch) and architecture tokens
+        var osToken = OperatingSystem.IsWindows() ? "win" : OperatingSystem.IsMacOS() ? "osx" : "linux";
+        var arch = System.Runtime.InteropServices.RuntimeInformation.OSArchitecture;
+        var archToken = arch switch
+        {
+            System.Runtime.InteropServices.Architecture.X64 => "x64",
+            System.Runtime.InteropServices.Architecture.X86 => "x86",
+            System.Runtime.InteropServices.Architecture.Arm64 => "arm64",
+            System.Runtime.InteropServices.Architecture.Arm => "arm",
+            _ => "x64"
+        };
 
+        var patterns = new List<string>
+        {
+            $"{osToken}-{archToken}",
+            $"{osToken}{archToken}",
+            archToken,
+            osToken,
+            "linux",
+            "win",
+            "osx",
+            "darwin",
+            "mac"
+        };
+
+        var scored = new List<(string name, string url, int score)>();
         foreach (var asset in assets.EnumerateArray())
         {
             var name = asset.GetProperty("name").GetString() ?? string.Empty;
             var url = asset.GetProperty("browser_download_url").GetString() ?? string.Empty;
             var lname = name.ToLowerInvariant();
-            if (lname.Contains(os) || lname.Contains("win") || lname.Contains("darwin") || lname.Contains("linux") )
+            int score = int.MaxValue;
+            for (int i = 0; i < patterns.Count; i++)
             {
-                chosenUrl = url; chosenName = name; break;
+                if (lname.Contains(patterns[i]))
+                {
+                    score = i; break;
+                }
             }
+            if (score != int.MaxValue)
+                scored.Add((name, url, score));
         }
 
-        // fallback to first asset
-        if (chosenUrl == null)
+        string? chosenUrl = null;
+        string? chosenName = null;
+
+        if (scored.Count == 0)
         {
+            // no good matches — fallback to first asset
             var first = assets[0];
             chosenName = first.GetProperty("name").GetString();
             chosenUrl = first.GetProperty("browser_download_url").GetString();
+        }
+        else
+        {
+            // sort by score (lower is better) then by name
+            scored.Sort((a, b) => a.score != b.score ? a.score.CompareTo(b.score) : string.Compare(a.name, b.name, StringComparison.OrdinalIgnoreCase));
+            // if multiple with same best score, prompt; otherwise choose best
+            var bestScore = scored[0].score;
+            var bestMatches = scored.Where(s => s.score == bestScore).ToList();
+            if (bestMatches.Count == 1)
+            {
+                chosenName = bestMatches[0].name;
+                chosenUrl = bestMatches[0].url;
+            }
+            else
+            {
+                Console.WriteLine("Multiple release assets match your platform. Please choose:");
+                for (int i = 0; i < bestMatches.Count; i++)
+                {
+                    Console.WriteLine($"  {i + 1}) {bestMatches[i].name} -> {bestMatches[i].url}");
+                }
+                Console.Write("Enter number to download (default 1): ");
+                var input = Console.ReadLine();
+                int sel = 1;
+                if (!string.IsNullOrWhiteSpace(input) && int.TryParse(input.Trim(), out var parsed) && parsed >= 1 && parsed <= bestMatches.Count)
+                    sel = parsed;
+                chosenName = bestMatches[sel - 1].name;
+                chosenUrl = bestMatches[sel - 1].url;
+            }
         }
 
         if (_verbose && !string.IsNullOrEmpty(chosenUrl))
