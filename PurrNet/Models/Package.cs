@@ -176,7 +176,8 @@ namespace Purrnet.Models
         public string IconUrl { get; set; } = string.Empty;
         
         [JsonPropertyName("mainfile")]
-        public string? MainFile { get; set; }
+        [Required]
+        public string MainFile { get; set; } = string.Empty;
     }
 
     public class PackageListResponse

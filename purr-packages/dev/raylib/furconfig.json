@@ -1,0 +1,8 @@
+{
+  "name": "raylib",
+  "version": "latest",
+  "git": "https://github.com/raysan5/raylib",
+  "installer": "installer.sh",
+  "authors": ["raysan5"],
+  "categories": ["library","graphics"]
+}

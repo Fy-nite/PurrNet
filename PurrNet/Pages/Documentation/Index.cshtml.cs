@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Reflection;
+using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using purrnet.Pages.Shared;
@@ -14,6 +15,7 @@ namespace purrnet.Pages.Documentation
             public string Title { get; set; }
             public string Category { get; set; }
             public string Content { get; set; }
+            public string Url { get; set; }
         }
 
         public List<DocEntry> DocumentationPages { get; set; } = new();
@@ -37,10 +39,62 @@ namespace purrnet.Pages.Documentation
                 {
                     Title = attr.Title,
                     Category = attr.Category,
-                    Content = content
+                    Content = content,
+                    Url = "?page=" + System.Net.WebUtility.UrlEncode(attr.Title)
                 });
             }
             DocumentationPages = docs.OrderBy(d => d.Category).ThenBy(d => d.Title).ToList();
+            // Also include any physical Razor pages under Pages/Documentation so file-based docs (like SubmitPackage.cshtml) appear
+            try
+            {
+                var contentRoot = Directory.GetCurrentDirectory();
+                var docsDir = Path.Combine(contentRoot, "Pages", "Documentation");
+                if (Directory.Exists(docsDir))
+                {
+                    var csfiles = Directory.GetFiles(docsDir, "*.cshtml", SearchOption.TopDirectoryOnly);
+                    foreach (var f in csfiles)
+                    {
+                        var fname = Path.GetFileName(f);
+                        if (string.Equals(fname, "Index.cshtml", StringComparison.OrdinalIgnoreCase))
+                            continue;
+                        if (fname.StartsWith("_") || fname.StartsWith("Shared", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        string fileContent = System.IO.File.ReadAllText(f);
+                        // Try to extract ViewData["Title"] = "..." if present
+                        string title = Path.GetFileNameWithoutExtension(f);
+                        try
+                        {
+                            var marker = "ViewData[\"Title\"]";
+                            var idx = fileContent.IndexOf(marker);
+                            if (idx >= 0)
+                            {
+                                var sub = fileContent.Substring(idx, Math.Min(200, fileContent.Length - idx));
+                                var start = sub.IndexOf('=');
+                                if (start >= 0)
+                                {
+                                    var quote = sub.IndexOf('"', start);
+                                    var quote2 = sub.IndexOf('"', quote + 1);
+                                    if (quote >= 0 && quote2 > quote)
+                                    {
+                                        var t = sub.Substring(quote + 1, quote2 - quote - 1).Trim();
+                                        if (!string.IsNullOrEmpty(t)) title = t;
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+
+                        // Create a doc entry; use category 'Pages' for file-based docs and link directly to the page route
+                        var nameNoExt = Path.GetFileNameWithoutExtension(f);
+                        var pageRoute = "/Documentation/" + nameNoExt;
+                        docs.Add(new DocEntry { Title = title, Category = "Pages", Content = string.Empty, Url = pageRoute });
+                    }
+
+                    DocumentationPages = docs.OrderBy(d => d.Category).ThenBy(d => d.Title).ToList();
+                }
+            }
+            catch { /* ignore filesystem errors */ }
             var selected = DocumentationPages
                 .FirstOrDefault(d => string.Equals(d.Title?.Trim(), page?.Trim(), StringComparison.OrdinalIgnoreCase))
                 ?? DocumentationPages.FirstOrDefault();

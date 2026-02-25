@@ -1,0 +1,8 @@
+{
+  "name": "cmake",
+  "version": "latest",
+  "git": "https://github.com/Kitware/CMake",
+  "installer": "installer.sh",
+  "authors": ["Kitware"],
+  "categories": ["build-tool"]
+}

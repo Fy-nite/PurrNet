@@ -1,0 +1,86 @@
+@page
+@{
+    ViewData["Title"] = "Submitting Packages";
+    Layout = "_Layout";
+}
+
+<div class="container py-4">
+    <h1>Submitting Packages</h1>
+    <p class="lead">Guidance for publishing packages to PurrNet so the `purr` CLI can install them reliably.</p>
+
+    <h3>Overview</h3>
+    <p>There are two common ways to make a package installable by the CLI:</p>
+    <ul>
+        <li>Publish release assets on GitHub (recommended for portable CLI tools).</li>
+        <li>Provide a repository with an installer script (advanced/custom installers).</li>
+    </ul>
+
+    <h3>Release asset recommendations</h3>
+    <p>When publishing releases, provide platform/arch-specific assets so the CLI can automatically pick the correct file. Use dotnet-style RID tokens in filenames, for example:</p>
+    <ul>
+        <li><code>linux-x64.zip</code></li>
+        <li><code>linux-arm64.zip</code></li>
+        <li><code>osx-x64.zip</code> or <code>osx-arm64.zip</code></li>
+        <li><code>win-x64.zip</code> (or an <code>.msi</code> for native installs)</li>
+    </ul>
+
+    <h3>Main file (required)</h3>
+    <p>The package metadata requires a <strong>Main File</strong> value. This is the name of the primary executable inside your release asset (with or without extension), for example <code>cmake</code> or <code>mytool.exe</code>. The CLI uses this value to locate the binary after extracting archives.</p>
+
+    <h3>Packaging format</h3>
+    <p>Prefer a small portable archive that contains the runnable binary in a predictable layout, for example:</p>
+    <pre><code>publish/linux-x64/mytool</code></pre>
+    <p>Zip archives are supported across platforms; tar.gz is also fine for unix-style releases. Avoid including only PDBs, docs, or symbols as the primary asset.</p>
+
+    <h3>Installer scripts</h3>
+    <p>If your package requires more complex install steps (system dependencies, registry/privileged installs), include platform-specific installer scripts in the repository (for example <code>installer.sh</code> and <code>installer.ps1</code>) and set the <code>installer</code> field in the package metadata to point at the script path. The CLI will clone the repository and execute the installer when provided.</p>
+
+    <h3>Checksums</h3>
+    <p>Provide checksum files (for example <code>linux-x64.zip.sha256</code>) as release assets and sign or publish checksums on the release notes. The CLI currently does not enforce checksums automatically, but providing them improves security for users and can be added later.</p>
+
+    <h3>Uninstall</h3>
+    <p>The CLI will install the chosen binary into <code>$HOME/.purr/bin</code> and create a shim named after the package. Uninstalling removes those files; if you ship an installer that performs system-level changes you should also provide an <code>uninstall</code> script.</p>
+
+    <h3>Example metadata (furconfig)</h3>
+    <pre><code class="language-json">{
+  "name": "mytool",
+  "version": "1.0.0",
+  "authors": ["alice"],
+  "git": "https://github.com/example/mytool",
+  "mainfile": "mytool",
+  "Supported_Platforms": ["linux","windows","osx"],
+  "icon_url": "https://example.com/icon.png"
+}
+    </code></pre>
+
+    <h3>Example installer script (small portable)</h3>
+    <pre><code class="language-bash">#!/usr/bin/env bash
+set -euo pipefail
+TMP=$(mktemp -d)
+ASSET_URL="$1"
+curl -L "$ASSET_URL" -o "$TMP/asset.zip"
+mkdir -p "$TMP/ex"
+unzip -q "$TMP/asset.zip" -d "$TMP/ex"
+MAIN=$(find "$TMP/ex" -type f -name 'mytool' -print -quit)
+install -d "$HOME/.purr/bin"
+cp "$MAIN" "$HOME/.purr/bin/mytool"
+chmod +x "$HOME/.purr/bin/mytool"
+echo "Installed mytool to $HOME/.purr/bin"
+    </code></pre>
+
+    <h3>Starter repository</h3>
+    <p>If you need a concrete starting point, the project contains a
+    <code>purr-packages</code> directory with a couple of example packages
+    (e.g. <code>cmake</code> and <code>raylib</code>).  Each subfolder has a
+    `furconfig.json` and cross‑platform installer scripts you can copy or
+    depend on directly.</p>
+
+    <h3>Checklist before submitting</h3>
+    <ul>
+        <li>Release assets named with RID tokens.</li>
+        <li><strong>Main File</strong> set in package metadata.</li>
+        <li>Archive contains the runnable binary (not only .pdb files).</li>
+        <li>Optional: provide installer/uninstaller scripts for complex installs.</li>
+        <li>Optional: include checksums for published assets.</li>
+    </ul>
+</div>

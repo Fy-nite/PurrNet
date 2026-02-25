@@ -5,15 +5,47 @@
 
 <h1>Documentation</h1>
 
-<p>Focused pages covering common user topics for the Purr CLI and the PurrNet registry.</p>
+<p class="lead">Focused pages covering common user topics for the Purr CLI and the PurrNet registry.</p>
 
-<ul>
-    <li><a asp-page="/Documentation/InstallPackages">Installing Packages</a></li>
-    <li><a asp-page="/Documentation/DirectoryLayout">Directory Layout</a></li>
-    <li><a asp-page="/Documentation/Commands">Commands Reference</a></li>
-    <li><a asp-page="/Documentation/Configuration">Configuration &amp; Manifests</a></li>
-    <li><a asp-page="/Documentation/InstallerScripts">Installer Scripts &amp; PATH</a></li>
-</ul>
+<!-- static links for each Razor documentation file in the folder -->
+<section class="doc-quicklinks mb-4">
+    <h2>Quick Links</h2>
+    <ul>
+        <li><a href="/Documentation/Configuration">Configuration &amp; Package Manifests</a></li>
+        <li><a href="/Documentation/Commands">CLI Commands</a></li>
+        <li><a href="/Documentation/DirectoryLayout">Directory Layout</a></li>
+        <li><a href="/Documentation/FAQ">Frequently Asked Questions</a></li>
+        <li><a href="/Documentation/InstallerScripts">Installer Scripts</a></li>
+        <li><a href="/Documentation/HowToInstall">How to Install</a></li>
+        <li><a href="/Documentation/InstallPackages">Installing Packages</a></li>
+        <li><a href="/Documentation/SubmitPackage">Submitting a Package</a></li>
+    </ul>
+</section>
+
+<section class="doc-index">
+    <div class="row">
+        @foreach (var doc in Model.DocumentationPages)
+        {
+            var excerpt = string.Empty;
+            if (!string.IsNullOrEmpty(doc.Content))
+            {
+                var parts = doc.Content.Split(new[] { "\r\n\r\n", "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
+                excerpt = parts.Length > 0 ? parts[0] : string.Empty;
+            }
+
+            <div class="col-md-6 mb-3">
+                <div class="card bg-dark border-secondary h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">@doc.Title</h5>
+                        <p class="card-subtitle text-muted small">@doc.Category</p>
+                        <div class="card-text mt-2 text-muted small">@Html.Raw(Markdown.ToHtml(excerpt))</div>
+                        <a class="stretched-link" href="@doc.Url"></a>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</section>
 
 @model purrnet.Pages.Documentation.IndexModel
 @using Markdig
@@ -34,7 +66,7 @@
                         @foreach (var doc in group)
                         {
                             <li>
-                                <a class="@(Model.SelectedTitle == doc.Title ? "active" : "")" href="?page=@doc.Title">@doc.Title</a>
+                                <a class="@(Model.SelectedTitle == doc.Title ? "active" : "")" href="@doc.Url">@doc.Title</a>
                             </li>
                         }
                     </ul>
