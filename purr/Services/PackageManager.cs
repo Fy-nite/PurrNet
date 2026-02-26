@@ -593,7 +593,8 @@ public class PackageManager
         await RunCommandAsync(command, arguments, showOutput, new Dictionary<string, string?> {
             {"PURR_CWD", cwd},
             {"PURR_INSTALL_DIR", installDir},
-            {"PURR_PACKAGE_NAME", packageName}
+            {"PURR_PACKAGE_NAME", packageName},
+            {"PURR_BIN_DIR", Path.Combine(_purr_folder, "bin")}
         });
     }
 

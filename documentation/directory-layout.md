@@ -5,11 +5,11 @@ Where `purr` and script-installed packages keep their files.
 User-level directories:
 
 ```
-~/.purr/
+$XDG_DATA_HOME/purr/
 └── bin/                      # Binaries installed from release assets
     └── <package-name>
 
-~/.purr/
+$XDG_DATA_HOME/purr/
 └── packages/
     └── <package-name>/       # One directory per script-installed package
         ├── .git/             # Full git clone of the package's repository
@@ -18,6 +18,6 @@ User-level directories:
 ```
 
 Notes:
-- Release-asset-installed executables are placed in `~/.purr/bin` (or `%USERPROFILE%\.purr\bin` on Windows).
-- Script-based packages are full git clones under `~/.purr/packages` so installers can run from the repo.
-- `purr` does not automatically remove binaries from `~/.purr/bin` when uninstalling script-based packages; remove them manually if needed.
+- Release-asset-installed executables are placed in `$XDG_DATA_HOME/purr/bin` (or `%USERPROFILE%\.purr\bin` on Windows).
+- Script-based packages are full git clones under `$XDG_DATA_HOME/purr/packages` so installers can run from the repo.
+- `purr` does not automatically remove binaries from `$XDG_DATA_HOME/purr/bin` when uninstalling script-based packages; remove them manually if needed.

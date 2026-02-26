@@ -7,8 +7,8 @@ namespace PurrLauncher.Services;
 public class PackageInstallService
 {
     private static readonly string PackagesDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".purr", "packages");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "purr", "packages");
 
     // ─── Query ────────────────────────────────────────────────────────────────
 

@@ -18,7 +18,7 @@ if [ -z "$MAIN" ]; then
     exit 1
 fi
 
-install -d "$HOME/.purr/bin"
-cp "$MAIN" "$HOME/.purr/bin/raylib"
-chmod +x "$HOME/.purr/bin/raylib"
-echo "Installed raylib to $HOME/.purr/bin"
+install -d "$PURR_BIN_DIR"
+cp "$MAIN" "$PURR_BIN_DIR/raylib"
+chmod +x "$PURR_BIN_DIR/raylib"
+echo "Installed raylib to $PURR_BIN_DIR"
