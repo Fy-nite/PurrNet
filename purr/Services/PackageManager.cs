@@ -41,12 +41,12 @@ public class PackageManager
         // if legacy ~/.purr exists, move it and make a symlink
         if (Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr")))
         {
-            string legacy_path = Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr"));
+            string legacy_path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr");
             Directory.Move(legacy_path, _purr_folder);
             File.CreateSymbolicLink(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), _purr_folder);
         }
 
-        _packagesDirectory = Path.Combine(purr_folder, "packages");
+        _packagesDirectory = Path.Combine(_purr_folder, "packages");
         Directory.CreateDirectory(_packagesDirectory);
     }
 

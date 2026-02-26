@@ -86,7 +86,7 @@ When you run `purr install <package>`, the following steps happen:
 ---
 
 ## Directory Layout
-purr_folder is `$XDG_DATA_DIR/purr` (Linux), `~/.purr` (MacOS) or `%LOCALAPPDATA%\purr` (Windows)
+purr_folder is `$XDG_DATA_HOME/purr` (Linux), `~/.purr` (MacOS) or `%LOCALAPPDATA%\purr` (Windows)
 
 ```
 <purr_folder>
@@ -369,7 +369,7 @@ When running installer (and uninstaller) scripts, `purr` sets several environmen
 | `PURR_CWD`            | The directory where `purr` was invoked from               |
 | `PURR_INSTALL_DIR`    | The directory where the package is being installed (the script's directory) |
 | `PURR_PACKAGE_NAME`   | The name of the package being installed                   |
-| `PURR_BIN_DIR`        | The directory to place package binarys                    |
+| `PURR_BIN_DIR`        | The directory to place package binaries                   |
 
 These variables are available in all script types:
 
@@ -390,12 +390,12 @@ Release-asset binaries are placed in `<purr_folder>/bin` `purr` checks after eve
 
 **Bash / Zsh (one-time, current session):**
 ```bash
-export PATH="${XDG_DATA_DIR:-~/.local/share}/purr/bin:$PATH"
+export PATH="${XDG_DATA_HOME:-~/.local/share}/purr/bin:$PATH"
 ```
 
 **Persist in Bash (`~/.bashrc`) or Zsh (`~/.zshrc`):**
 ```bash
-echo 'export PATH="$PATH:${XDG_DATA_DIR:-~/.local/share}/purr/bin"' >> ~/.bashrc
+echo 'export PATH="$PATH:${XDG_DATA_HOME:-~/.local/share}/purr/bin"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
