@@ -3,7 +3,7 @@ set -euo pipefail
 
 # this script is invoked by `purr` with a single argument: the URL of a
 # platform-specific release asset.  the asset is downloaded, unpacked, and the
-# main executable is copied into ~/.purr/bin.
+# main executable is copied into PURR_BIN_DIR.
 
 ASSET_URL="$1"
 TMP=$(mktemp -d)
@@ -19,7 +19,7 @@ if [ -z "$MAIN" ]; then
     exit 1
 fi
 
-install -d "$HOME/.purr/bin"
-cp "$MAIN" "$HOME/.purr/bin/cmake"
-chmod +x "$HOME/.purr/bin/cmake"
-echo "Installed cmake to $HOME/.purr/bin"
+install -d "$PURR_BIN_DIR"
+cp "$MAIN" "$PURR_BIN_DIR/cmake"
+chmod +x "$PURR_BIN_DIR/cmake"
+echo "Installed cmake to $PURR_BIN_DIR"
