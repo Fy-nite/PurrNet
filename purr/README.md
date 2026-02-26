@@ -72,12 +72,12 @@ When you run `purr install <package>`, the following steps happen:
    - Selects the most appropriate asset for the current OS (matching `windows`, `linux`, `mac`/`darwin` in the filename; falls back to the first asset).  
    - Downloads the asset to a temporary directory.  
    - If the asset is a `.zip`, it is extracted and the first executable found inside is used.  
-   - The binary is copied to `~/.purr/bin/<package-name>` (Linux/macOS) or `%USERPROFILE%\.purr\bin\<package-name>.exe` (Windows) and marked executable.  
-   - `purr` then checks whether `~/.purr/bin` is on your `PATH` and prints instructions if it is not (see [PATH Setup](#path-setup)).
+   - The binary is copied to `<purr_folder>/bin/<package-name>` and marked executable.  
+   - `purr` then checks whether or not the bin folder is on your `PATH` and prints instructions if it is not (see [PATH Setup](#path-setup)).
 
    **B. Script-based install (has `installer` field)**  
-   - If a local clone already exists at `~/.purr/packages/<name>/.git`, `purr` fetches and checks out the requested version.  
-   - If no clone exists, `purr` runs `git clone <git-url> ~/.purr/packages/<name>` and checks out the requested version.  
+   - If a local clone already exists at `<purr_folder>/packages/<name>/.git`, `purr` fetches and checks out the requested version.  
+   - If no clone exists, `purr` runs `git clone <git-url> <purr_folder>/packages/<name>` and checks out the requested version.  
    - The installer script (e.g. `install.sh`) is located at the root of the cloned repository and is executed.  
    - A `furconfig.json` metadata snapshot is written alongside the clone.
 
@@ -86,13 +86,14 @@ When you run `purr install <package>`, the following steps happen:
 ---
 
 ## Directory Layout
+purr_folder is `$XDG_DATA_DIR/purr` (Linux), `~/.purr` (MacOS) or `%LOCALAPPDATA%\purr` (Windows)
 
 ```
-~/.purr/
+<purr_folder>
 └── bin/                      # Binaries installed from release assets
     └── <package-name>        # Executable (or .exe on Windows)
 
-~/.purr/
+<purr_folder>
 └── packages/
     └── <package-name>/       # One directory per script-installed package
         ├── .git/             # Full git clone of the package's repository
@@ -147,7 +148,7 @@ purr uninstall <package>
 purr uninstall neofetch
 ```
 
-> **Note:** Release-asset-installed binaries in `~/.purr/bin` are not currently removed by `uninstall`. Delete them manually if needed.
+> **Note:** Release-asset-installed binaries are not currently removed by `uninstall`. Delete them manually if needed.
 
 ---
 
@@ -368,6 +369,7 @@ When running installer (and uninstaller) scripts, `purr` sets several environmen
 | `PURR_CWD`            | The directory where `purr` was invoked from               |
 | `PURR_INSTALL_DIR`    | The directory where the package is being installed (the script's directory) |
 | `PURR_PACKAGE_NAME`   | The name of the package being installed                   |
+| `PURR_BIN_DIR`        | The directory to place package binarys                    |
 
 These variables are available in all script types:
 
@@ -384,32 +386,32 @@ For **uninstall**, `purr` looks for a script with the same name but `install` re
 
 ## PATH Setup
 
-Release-asset binaries are placed in `~/.purr/bin` (Linux/macOS) or `%USERPROFILE%\.purr\bin` (Windows). `purr` checks after every install whether this directory is already on `PATH` and prints the appropriate shell commands if it is not.
+Release-asset binaries are placed in `<purr_folder>/bin` `purr` checks after every install whether this directory is already on `PATH` and prints the appropriate shell commands if it is not.
 
 **Bash / Zsh (one-time, current session):**
 ```bash
-export PATH="$HOME/.purr/bin:$PATH"
+export PATH="${XDG_DATA_DIR:-~/.local/share}/purr/bin:$PATH"
 ```
 
 **Persist in Bash (`~/.bashrc`) or Zsh (`~/.zshrc`):**
 ```bash
-echo 'export PATH="$HOME/.purr/bin:$PATH"' >> ~/.bashrc
+echo 'export PATH="$PATH:${XDG_DATA_DIR:-~/.local/share}/purr/bin"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
 **Fish (persistent):**
 ```fish
-set -U fish_user_paths $HOME/.purr/bin $fish_user_paths
+set -U fish_user_paths $HOME/.local/share/purr/bin $fish_user_paths
 ```
 
 **PowerShell (current session):**
 ```powershell
-$env:Path = "$env:USERPROFILE\.purr\bin;$env:Path"
+$env:Path = "$env:LOCALAPPDATA\purr\bin;$env:Path"
 ```
 
 **PowerShell / CMD (persist via `setx`):**
 ```cmd
-setx PATH "%USERPROFILE%\.purr\bin;%PATH%"
+setx PATH "%LOCALAPPDATA%\purr\bin;%PATH%"
 ```
 
 ---

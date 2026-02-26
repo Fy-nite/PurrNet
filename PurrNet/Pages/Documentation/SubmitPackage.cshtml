@@ -39,7 +39,7 @@
     <p>Provide checksum files (for example <code>linux-x64.zip.sha256</code>) as release assets and sign or publish checksums on the release notes. The CLI currently does not enforce checksums automatically, but providing them improves security for users and can be added later.</p>
 
     <h3>Uninstall</h3>
-    <p>The CLI will install the chosen binary into <code>$HOME/.purr/bin</code> and create a shim named after the package. Uninstalling removes those files; if you ship an installer that performs system-level changes you should also provide an <code>uninstall</code> script.</p>
+    <p>The CLI will install the chosen binary into <code>$XDG_DATA_HOME/purr/bin</code> and create a shim named after the package. Uninstalling removes those files; if you ship an installer that performs system-level changes you should also provide an <code>uninstall</code> script.</p>
 
     <h3>Example metadata (furconfig)</h3>
     <pre><code class="language-json">{
@@ -62,10 +62,10 @@ curl -L "$ASSET_URL" -o "$TMP/asset.zip"
 mkdir -p "$TMP/ex"
 unzip -q "$TMP/asset.zip" -d "$TMP/ex"
 MAIN=$(find "$TMP/ex" -type f -name 'mytool' -print -quit)
-install -d "$HOME/.purr/bin"
-cp "$MAIN" "$HOME/.purr/bin/mytool"
-chmod +x "$HOME/.purr/bin/mytool"
-echo "Installed mytool to $HOME/.purr/bin"
+install -d "$PURR_BIN_DIR"
+cp "$MAIN" "$PURR_BIN_DIR/mytool"
+chmod +x "$PURR_BIN_DIR/mytool"
+echo "Installed mytool to $PURR_BIN_DIR"
     </code></pre>
 
     <h3>Starter repository</h3>

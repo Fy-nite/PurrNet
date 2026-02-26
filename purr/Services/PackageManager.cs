@@ -473,11 +473,11 @@ public class PackageManager
             if (OperatingSystem.IsWindows())
             {
                 ConsoleHelper.WriteInfo("PowerShell (current session):");
-                ConsoleHelper.WriteDimLine($"  $env:Path = \"$env:USERPROFILE\\.purr\\bin;$env:Path\"");
+                ConsoleHelper.WriteDimLine($"  $env:Path = \"$env:LOCALAPPDATA\\purr\\bin;$env:Path\"");
                 ConsoleHelper.WriteInfo("PowerShell (persist):");
-                ConsoleHelper.WriteDimLine($"  setx PATH \"%USERPROFILE%\\.purr\\bin;%PATH%\"");
+                ConsoleHelper.WriteDimLine($"  setx PATH \"%LOCALAPPDATA%\\purr\\bin;%PATH%\"");
                 ConsoleHelper.WriteInfo("Command Prompt (persist):");
-                ConsoleHelper.WriteDimLine($"  setx PATH \"%USERPROFILE%\\.purr\\bin;%PATH%\"");
+                ConsoleHelper.WriteDimLine($"  setx PATH \"%LOCALAPPDATA%\\purr\\bin;%PATH%\"");
             }
             else
             {
