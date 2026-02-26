@@ -1,6 +1,6 @@
 # FUR API Documentation
 
-Base URL: `https://your-domain.com/api/v1`
+Base URL: `https://purr.finite.ovh/api/v1`
 
 ## Health & Information
 
