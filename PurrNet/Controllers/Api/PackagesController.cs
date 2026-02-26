@@ -6,6 +6,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
+using System.Text.RegularExpressions;
 
 namespace Purrnet.Controllers.Api
 {

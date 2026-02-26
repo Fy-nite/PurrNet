@@ -2,6 +2,7 @@ using Purrnet.Models;
 using Purrnet.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Purrnet.Services
 {
@@ -90,7 +91,7 @@ namespace Purrnet.Services
                     var owner = await _context.Users.FindAsync(ownerId.Value);
                     if (owner == null)
                     {
-                        _logger.LogWarning("OwnerId {OwnerId} not found for package {PackageName}; clearing OwnerId", Regex.Replace(ownerId, _sanitize_regex, ""), Regex.Replace(PurrConfig.Name, _sanitize_regex, ""));
+                        _logger.LogWarning("OwnerId {OwnerId} not found for package {PackageName}; clearing OwnerId", ownerId, Regex.Replace(PurrConfig.Name, _sanitize_regex, ""));
                         validOwnerId = null;
                     }
                 }
@@ -156,7 +157,7 @@ namespace Purrnet.Services
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Package {PackageName} saved successfully by {CreatedBy} (Owner ID: {OwnerId})", 
-                    Regex.Replace(PurrConfig.Name, _sanitize_regex, ""), Regex.Replace(createdBy, _sanitize_regex, ""), Regex.Replace(ownerId, _sanitize_regex, ""));
+                    Regex.Replace(PurrConfig.Name, _sanitize_regex, ""), Regex.Replace(createdBy, _sanitize_regex, ""), ownerId);
                 return true;
             }
             catch (Exception ex)
@@ -369,7 +370,7 @@ namespace Purrnet.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error searching packages with query '{Query}'", Regex.Replace(query, _sanitize_regex, ""));
+                _logger.LogError(ex, "Error searching packages with query '{Query}'", Regex.Replace(query ?? string.Empty, _sanitize_regex, ""));
                 return new SearchResult { Packages = new List<Package>(), TotalCount = 0, Query = query ?? string.Empty };
             }
         }
