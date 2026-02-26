@@ -12,6 +12,7 @@ public class PackageManager
     private readonly ApiService _apiService;
     private readonly string _packagesDirectory;
     private readonly bool _verbose;
+    private readonly string _purr_folder;
 
     public PackageManager(string[]? repositoryUrls = null, bool verbose = false)
     {
@@ -19,7 +20,33 @@ public class PackageManager
             ? new ApiService(repositoryUrls)
             : new ApiService();
         _verbose = verbose;
-        _packagesDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr", "packages");
+        // find / create the purr folder in the correct spot
+        if (OperatingSystem.IsWindows()) // C:\Users\{name}\purr
+            _purr_folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "purr");
+        else if (OperatingSystem.IsMacOS()) // ~/.purr   TODO: replace this with the correct folder for MacOS
+            _purr_folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr");
+        else {
+            string? xdg_data_home = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
+            if (xdg_data_home != null) // $XDG_DATA_HOME/purr
+                _purr_folder = Path.Combine(xdg_data_home, "purr");
+            else if (Directory.Exists(
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".local", "share")
+            )) // ~/.local/share/purr
+                _purr_folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local", "share", "purr");
+            else // ~/.purr      backup incase there is no .local/share or XDG_DATA_HOME
+                _purr_folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr");
+        }
+
+        // if legacy ~/.purr exists, move it and make a symlink
+        if (Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr")))
+        {
+            string legacy_path = Directory.Exists(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr"));
+            Directory.Move(legacy_path, _purr_folder);
+            File.CreateSymbolicLink(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), _purr_folder);
+        }
+
+        _packagesDirectory = Path.Combine(purr_folder, "packages");
         Directory.CreateDirectory(_packagesDirectory);
     }
 
@@ -294,7 +321,7 @@ public class PackageManager
             await s.CopyToAsync(fs);
 
         // Prepare user's bin directory
-        var userBin = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr", "bin");
+        var userBin = Path.Combine(_purr_folder, "bin");
         Directory.CreateDirectory(userBin);
 
         // If it's a zip, try to extract and find an executable
@@ -460,13 +487,13 @@ public class PackageManager
                 else if (shell.Contains("bash")) rcFile = "~/.bashrc";
 
                 ConsoleHelper.WriteInfo("Add to current session:");
-                ConsoleHelper.WriteDimLine($"  export PATH=\"$HOME/.purr/bin:$PATH\"");
+                ConsoleHelper.WriteDimLine($"  export PATH=\"{_purr_folder}/bin:$PATH\"");
 
                 ConsoleHelper.WriteInfo($"Persist for future sessions (append to {rcFile}):");
-                ConsoleHelper.WriteDimLine($"  echo 'export PATH=\"$HOME/.purr/bin:$PATH\"' >> {rcFile}");
+                ConsoleHelper.WriteDimLine($"  echo 'export PATH=\"{_purr_folder}/bin:$PATH\"' >> {rcFile}");
 
                 ConsoleHelper.WriteInfo("Fish shell (persistent):");
-                ConsoleHelper.WriteDimLine($"  set -U fish_user_paths $HOME/.purr/bin $fish_user_paths");
+                ConsoleHelper.WriteDimLine($"  set -U fish_user_paths {_purr_folder}/bin $fish_user_paths");
             }
 
             Console.WriteLine();
@@ -957,7 +984,7 @@ public class PackageManager
         // Regardless of whether a package dir existed, try to remove installed binaries/shims from user bin
         try
         {
-            var userBin = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr", "bin");
+            var userBin = Path.Combine(_purr_folder, "bin");
             var removedAny = false;
 
             // candidate filenames to remove: exact name, name.exe, name.pdb
