@@ -92,7 +92,7 @@ namespace Purrnet.Controllers.Api
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting versions for {PackageName}", packageName);
+                _logger.LogError(ex, "Error getting versions for {PackageName}", Regex.Replace(packageName, @"[^\x20-\x7e]+", ""));
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -141,7 +141,7 @@ namespace Purrnet.Controllers.Api
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting package {PackageName}", packageName);
+                _logger.LogError(ex, "Error getting package {PackageName}", Regex.Replace(packageName, @"[^\x20-\x7e]+", ""));
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -178,7 +178,7 @@ namespace Purrnet.Controllers.Api
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error uploading package {PackageName}", PurrConfig.Name);
+                _logger.LogError(ex, "Error uploading package {PackageName}", Regex.Replace(PurrConfig.Name, @"[^\x20-\x7e]+", ""));
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -197,7 +197,7 @@ namespace Purrnet.Controllers.Api
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error incrementing download count for {PackageName}", packageName);
+                _logger.LogError(ex, "Error incrementing download count for {PackageName}", Regex.Replace(packageName, @"[^\x20-\x7e]+", ""));
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -277,7 +277,7 @@ namespace Purrnet.Controllers.Api
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting packages by tag {Tag}", tag);
+                _logger.LogError(ex, "Error getting packages by tag {Tag}", Regex.Replace(tag, @"[^\x20-\x7e]+", ""));
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -292,7 +292,7 @@ namespace Purrnet.Controllers.Api
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting packages by author {Author}", author);
+                _logger.LogError(ex, "Error getting packages by author {Author}", Regex.Replace(author, @"[^\x20-\x7e]+", ""));
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -307,7 +307,7 @@ namespace Purrnet.Controllers.Api
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting packages by category {Category}", category);
+                _logger.LogError(ex, "Error getting packages by category {Category}", Regex.Replace(category, @"[^\x20-\x7e]+", ""));
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -332,7 +332,7 @@ namespace Purrnet.Controllers.Api
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting reviews for {PackageName}", packageName);
+                _logger.LogError(ex, "Error getting reviews for {PackageName}", Regex.Replace(packageName, @"[^\x20-\x7e]+", ""));
                 return StatusCode(500, "Internal server error");
             }
         }
@@ -395,7 +395,7 @@ namespace Purrnet.Controllers.Api
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error building dependency tree for {PackageName}", packageName);
+                _logger.LogError(ex, "Error building dependency tree for {PackageName}", Regex.Replace(packageName, @"[^\x20-\x7e]+", ""));
                 return StatusCode(500, "Internal server error");
             }
         }

@@ -49,7 +49,7 @@ namespace Purrnet.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving package {PackageName}", packageName);
+                _logger.LogError(ex, "Error retrieving package {PackageName}", Regex.Replace(packageName, @"[^\x20-\x7e]+", ""));
                 return null;
             }
         }
@@ -77,7 +77,7 @@ namespace Purrnet.Services
 
                 if (existingPackage != null)
                 {
-                    _logger.LogInformation("Package {PackageName} already exists; updating existing record", PurrConfig.Name);
+                    _logger.LogInformation("Package {PackageName} already exists; updating existing record", Regex.Replace(PurrConfig.Name, @"[^\x20-\x7e]+", ""));
                     // Delegate to update flow so version history is recorded and fields are refreshed
                     return await UpdatePackageAsync(existingPackage.Id, PurrConfig, createdBy);
                 }
@@ -89,7 +89,7 @@ namespace Purrnet.Services
                     var owner = await _context.Users.FindAsync(ownerId.Value);
                     if (owner == null)
                     {
-                        _logger.LogWarning("OwnerId {OwnerId} not found for package {PackageName}; clearing OwnerId", ownerId, PurrConfig.Name);
+                        _logger.LogWarning("OwnerId {OwnerId} not found for package {PackageName}; clearing OwnerId", Regex.Replace(ownerId, @"[^\x20-\x7e]+", ""), Regex.Replace(PurrConfig.Name, @"[^\x20-\x7e]+", ""));
                         validOwnerId = null;
                     }
                 }
@@ -155,12 +155,12 @@ namespace Purrnet.Services
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Package {PackageName} saved successfully by {CreatedBy} (Owner ID: {OwnerId})", 
-                    PurrConfig.Name, createdBy, ownerId);
+                    Regex.Replace(PurrConfig.Name, @"[^\x20-\x7e]+", ""), Regex.Replace(createdBy, @"[^\x20-\x7e]+", ""), Regex.Replace(ownerId, @"[^\x20-\x7e]+", ""));
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error saving package {PackageName}", PurrConfig.Name);
+                _logger.LogError(ex, "Error saving package {PackageName}", Regex.Replace(PurrConfig.Name, @"[^\x20-\x7e]+", ""));
                 return false;
             }
         }
@@ -368,7 +368,7 @@ namespace Purrnet.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error searching packages with query '{Query}'", query);
+                _logger.LogError(ex, "Error searching packages with query '{Query}'", Regex.Replace(query, @"[^\x20-\x7e]+", ""));
                 return new SearchResult { Packages = new List<Package>(), TotalCount = 0, Query = query ?? string.Empty };
             }
         }
@@ -523,7 +523,7 @@ namespace Purrnet.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving packages by tag {Tag}", tag);
+                _logger.LogError(ex, "Error retrieving packages by tag {Tag}", Regex.Replace(tag, @"[^\x20-\x7e]+", ""));
                 return new List<Package>();
             }
         }
@@ -539,7 +539,7 @@ namespace Purrnet.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving packages by author {Author}", author);
+                _logger.LogError(ex, "Error retrieving packages by author {Author}", Regex.Replace(author, @"[^\x20-\x7e]+", ""));
                 return new List<Package>();
             }
         }
@@ -555,7 +555,7 @@ namespace Purrnet.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving packages by category {Category}", category);
+                _logger.LogError(ex, "Error retrieving packages by category {Category}", Regex.Replace(category, @"[^\x20-\x7e]+", ""));
                 return new List<Package>();
             }
         }
@@ -904,7 +904,7 @@ namespace Purrnet.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error adding review for {PackageName}", packageName);
+                _logger.LogError(ex, "Error adding review for {PackageName}", Regex.Replace(packageName, @"[^\x20-\x7e]+", ""));
                 return (false, "An error occurred while saving the review.");
             }
         }
