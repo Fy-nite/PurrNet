@@ -162,11 +162,7 @@ namespace Purrnet.Controllers.Api
 
                 // Get user info from authentication
                 var userIdClaim = User.FindFirst("UserId");
-                int? userId = null;
-                if (userIdClaim != null && int.TryParse(userIdClaim.Value, out var parsedUserId))
-                {
-                    userId = parsedUserId;
-                }
+                string? userId = userIdClaim?.Value;
 
                 var userName = User.Identity?.Name ?? "api-user";
                 var success = await _packageService.SavePackageAsync(PurrConfig, userName, userId);
@@ -346,13 +342,13 @@ namespace Purrnet.Controllers.Api
                 return BadRequest("Review body is required.");
 
             var userIdClaim = User.FindFirst("UserId");
-            int? userId = null;
+            string? userId = null;
             string reviewerName = "Anonymous";
             string? reviewerAvatarUrl = null;
 
-            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out var parsedId))
+            if (userIdClaim != null)
             {
-                userId = parsedId;
+                userId = userIdClaim.Value;
                 reviewerName = User.Identity?.Name ?? "User";
             }
 
@@ -366,14 +362,12 @@ namespace Purrnet.Controllers.Api
             return Ok(new { message = "Review submitted successfully." });
         }
 
-        [HttpDelete("{packageName}/reviews/{reviewId:int}")]
+        [HttpDelete("{packageName}/reviews/{reviewId}")]
         [Authorize]
-        public async Task<ActionResult> DeleteReviewAsync(string packageName, int reviewId)
+        public async Task<ActionResult> DeleteReviewAsync(string packageName, string reviewId)
         {
             var userIdClaim = User.FindFirst("UserId");
-            int? userId = null;
-            if (userIdClaim != null && int.TryParse(userIdClaim.Value, out var parsedId))
-                userId = parsedId;
+            string? userId = userIdClaim?.Value;
 
             bool isAdmin = User.IsInRole("Admin") || (User.FindFirst("IsAdmin")?.Value == "true");
 
@@ -505,15 +499,15 @@ namespace Purrnet.Controllers.Api
                     var purr = JsonSerializer.Deserialize<PurrConfig>(json);
                     if (purr == null) continue;
 
-                    int? ownerId = null;
+                    string? ownerId = null;
                     string createdBy = "import";
 
                     if (owners != null && owners.TryGetValue(purr.Name, out var ownerElem))
                     {
                         try
                         {
-                            if (ownerElem.TryGetProperty("OwnerId", out var oid) && oid.ValueKind == JsonValueKind.Number)
-                                ownerId = oid.GetInt32();
+                            if (ownerElem.TryGetProperty("OwnerId", out var oid) && oid.ValueKind == JsonValueKind.String)
+                                ownerId = oid.GetString();
 
                             if (ownerElem.TryGetProperty("CreatedBy", out var cb) && cb.ValueKind == JsonValueKind.String)
                                 createdBy = cb.GetString() ?? createdBy;

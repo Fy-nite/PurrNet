@@ -46,9 +46,9 @@ namespace Purrnet.Pages.Users
                 if (User.Identity?.IsAuthenticated == true)
                 {
                     var currentUserIdClaim = User.FindFirst("UserId");
-                    if (currentUserIdClaim != null && int.TryParse(currentUserIdClaim.Value, out var currentUserId))
+                    if (currentUserIdClaim != null)
                     {
-                        IsOwnProfile = currentUserId == ProfileUser.Id;
+                        IsOwnProfile = currentUserIdClaim.Value == ProfileUser.Id;
                     }
                 }
 

@@ -7,12 +7,12 @@ namespace Purrnet.Services
         // Package CRUD operations
         Task<List<Package>> GetAllPackagesAsync();
         Task<Package?> GetPackageAsync(string packageName, string? version = null);
-        Task<Package?> GetPackageByIdAsync(int id);
-        Task<bool> SavePackageAsync(PurrConfig PurrConfig, string createdBy, int? ownerId = null);
-        Task<bool> SavePackageAsync(PurrConfig PurrConfig, string createdBy); // Overload for backward compatibility
-        Task<bool> UpdatePackageAsync(int id, PurrConfig PurrConfig, string? updatedBy = null);
-        Task<bool> DeletePackageAsync(int id);
-        Task<bool> TogglePackageStatusAsync(int id);
+        Task<Package?> GetPackageByIdAsync(string id);
+        Task<bool> SavePackageAsync(PurrConfig purrConfig, string createdBy, string? ownerId = null);
+        Task<bool> SavePackageAsync(PurrConfig purrConfig, string createdBy); // Overload for backward compatibility
+        Task<bool> UpdatePackageAsync(string id, PurrConfig purrConfig, string? updatedBy = null);
+        Task<bool> DeletePackageAsync(string id);
+        Task<bool> TogglePackageStatusAsync(string id);
 
         // Search and filtering
         Task<SearchResult> SearchPackagesAsync(string? query = null, string? sort = null, int page = 1, int pageSize = 20);
@@ -24,8 +24,8 @@ namespace Purrnet.Services
 
         // Statistics and analytics
         Task<PackageStatistics> GetStatisticsAsync();
-        Task<bool> IncrementDownloadCountAsync(int packageId);
-        Task<bool> IncrementViewCountAsync(int packageId);
+        Task<bool> IncrementDownloadCountAsync(string packageId);
+        Task<bool> IncrementViewCountAsync(string packageId);
         Task<List<string>> GetPopularTagsAsync(int limit = 10);
         Task<List<string>> GetPopularCategoriesAsync(int limit = 10);
         Task<List<string>> GetPopularAuthorsAsync(int limit = 10);
@@ -40,12 +40,12 @@ namespace Purrnet.Services
 
         // Reviews
         Task<List<PackageReview>> GetPackageReviewsAsync(string packageName);
-        Task<(bool success, string error)> AddPackageReviewAsync(string packageName, int? userId, string reviewerName, string? reviewerAvatarUrl, int rating, string title, string body);
-        Task<bool> HasUserReviewedPackageAsync(string packageName, int userId);
-        Task<bool> DeleteReviewAsync(int reviewId, int? requestingUserId, bool isAdmin);
+        Task<(bool success, string error)> AddPackageReviewAsync(string packageName, string? userId, string reviewerName, string? reviewerAvatarUrl, int rating, string title, string body);
+        Task<bool> HasUserReviewedPackageAsync(string packageName, string userId);
+        Task<bool> DeleteReviewAsync(string reviewId, string? requestingUserId, bool isAdmin);
 
         // Dependency tree
         Task<DependencyNode?> GetDependencyTreeAsync(string packageName, int maxDepth = 3);
-        Task<bool> MarkPackageOutdatedAsync(int packageId, bool outdated = true);
+        Task<bool> MarkPackageOutdatedAsync(string packageId, bool outdated = true);
     }
 }

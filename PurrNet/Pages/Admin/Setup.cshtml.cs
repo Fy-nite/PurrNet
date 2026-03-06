@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
 using Purrnet.Data;
 
 namespace Purrnet.Pages.Admin
@@ -9,10 +9,10 @@ namespace Purrnet.Pages.Admin
     [Authorize]
     public class SetupModel : PageModel
     {
-        private readonly PurrDbContext _context;
+        private readonly MongoDbContext _context;
         private readonly IConfiguration _configuration;
 
-        public SetupModel(PurrDbContext context, IConfiguration configuration)
+        public SetupModel(MongoDbContext context, IConfiguration configuration)
         {
             _context = context;
             _configuration = configuration;
@@ -21,7 +21,7 @@ namespace Purrnet.Pages.Admin
         public async Task<IActionResult> OnGetAsync()
         {
             // Only allow if no admins exist yet
-            var hasAdmins = await _context.Users.AnyAsync(u => u.IsAdmin);
+            var hasAdmins = await _context.Users.Find(u => u.IsAdmin).AnyAsync();
             if (hasAdmins)
             {
                 return NotFound();

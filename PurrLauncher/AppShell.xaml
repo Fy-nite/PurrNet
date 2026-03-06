@@ -24,6 +24,13 @@
             Route="installed"
             IsVisible="{OnPlatform WinUI=True, Default=False}" />
 
+        <!-- Settings tab (all platforms) -->
+        <ShellContent
+            Title="Settings"
+            Icon="settings.svg"
+            ContentTemplate="{DataTemplate pages:SettingsPage}"
+            Route="settings" />
+
     </TabBar>
 
 </Shell>

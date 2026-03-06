@@ -1,11 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 
 namespace Purrnet.Models
 {
     public class Package
     {
-        public int Id { get; set; }
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
         
         [Required]
         public string Name { get; set; } = string.Empty;
@@ -31,7 +35,8 @@ namespace Purrnet.Models
         // Add categories support
         public List<string> Categories { get; set; } = new();
 
-        // Navigation property for relational categories (many-to-many)
+        // Navigation property for relational categories (many-to-many) — not persisted in MongoDB
+        [BsonIgnore]
         public List<Category> CategoryEntities { get; set; } = new();
         
         public string Homepage { get; set; } = string.Empty;
@@ -71,20 +76,28 @@ namespace Purrnet.Models
 
         // Package approval system
         public string ApprovalStatus { get; set; } = "Pending"; // Default to Approved for backward compatibility
-        public int? OwnerId { get; set; }
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? OwnerId { get; set; }
         public string? RejectionReason { get; set; }
 
-        // Navigation properties
+        // Navigation properties — not persisted in MongoDB
+        [BsonIgnore]
         public User? Owner { get; set; }
+        [BsonIgnore]
         public List<User> Maintainers { get; set; } = new();
+        [BsonIgnore]
         public List<PackageReview> Reviews { get; set; } = new();
     }
 
     public class PackageReview
     {
-        public int Id { get; set; }
-        public int PackageId { get; set; }
-        public int? UserId { get; set; }
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string PackageId { get; set; } = string.Empty;
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? UserId { get; set; }
 
         /// <summary>1-5 star rating</summary>
         public int Rating { get; set; }
@@ -99,8 +112,10 @@ namespace Purrnet.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
 
-        // Navigation
+        // Navigation — not persisted in MongoDB
+        [BsonIgnore]
         public Package? Package { get; set; }
+        [BsonIgnore]
         public User? User { get; set; }
     }
 
@@ -215,7 +230,9 @@ namespace Purrnet.Models
 
     public class User
     {
-        public int Id { get; set; }
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
         public string GitHubId { get; set; } = string.Empty;
         public string Username { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
@@ -225,10 +242,14 @@ namespace Purrnet.Models
         public bool IsAdmin { get; set; }
         public bool IsBanned { get; set; } = false;
 
-        // Navigation properties
+        // Navigation properties — not persisted in MongoDB
+        [BsonIgnore]
         public List<Package> OwnedPackages { get; set; } = new();
+        [BsonIgnore]
         public List<Package> MaintainedPackages { get; set; } = new();
+        [BsonIgnore]
         public List<AdminActivityEntity> AdminActivities { get; set; } = new();
+        [BsonIgnore]
         public List<PackageReview> Reviews { get; set; } = new();
     }
 
@@ -247,8 +268,11 @@ namespace Purrnet.Models
 
     public class AdminActivityEntity
     {
-        public int Id { get; set; }
-        public int UserId { get; set; }
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string UserId { get; set; } = string.Empty;
         public string Action { get; set; } = string.Empty;
         public string EntityType { get; set; } = string.Empty;
         public string EntityId { get; set; } = string.Empty;
@@ -257,7 +281,8 @@ namespace Purrnet.Models
         public string Username { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
-        // Navigation properties
+        // Navigation — not persisted in MongoDB
+        [BsonIgnore]
         public User User { get; set; } = null!;
     }
 }

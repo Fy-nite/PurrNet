@@ -5,7 +5,7 @@ namespace Purrnet.Models
     public class OwnerInfo
     {
         [JsonPropertyName("id")]
-        public int? Id { get; set; }
+        public string? Id { get; set; }
 
         [JsonPropertyName("github_id")]
         public string? GitHubId { get; set; }
@@ -26,6 +26,6 @@ namespace Purrnet.Models
         public OwnerInfo? Owner { get; set; }
 
         [JsonPropertyName("package_id")]
-        public int? PackageId { get; set; }
+        public string? PackageId { get; set; }
     }
 }
