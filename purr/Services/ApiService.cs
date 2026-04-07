@@ -26,8 +26,8 @@ public class ApiService : IDisposable
         foreach (var baseUrl in _baseUrls)
         {
             var url = version != null
-                ? $"{baseUrl}/api/v1/packages/{packageName}/{version}"
-                : $"{baseUrl}/api/v1/packages/{packageName}";
+                ? $"{baseUrl}/Api/V2/packages/{packageName}/{version}"
+                : $"{baseUrl}/Api/v2/packages/{packageName}";
 
             try
             {
