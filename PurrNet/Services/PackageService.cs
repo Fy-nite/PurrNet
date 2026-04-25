@@ -1,6 +1,7 @@
-using Purrnet.Models;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using Purrnet.Data;
-using Microsoft.EntityFrameworkCore;
+using Purrnet.Models;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -8,25 +9,25 @@ namespace Purrnet.Services
 {
     public class PackageService : IPackageService
     {
-        private readonly PurrDbContext _context;
+        private readonly MongoDbContext _context;
         private readonly ILogger<PackageService> _logger;
         private readonly static string _sanitizeRegex = @"[^\x20-\x7e]+";
 
-        public PackageService(PurrDbContext context, ILogger<PackageService> logger)
+        public PackageService(MongoDbContext context, ILogger<PackageService> logger)
         {
             _context = context;
             _logger = logger;
         }
 
+        // ─── CRUD ─────────────────────────────────────────────────────────────────
+
         public async Task<List<Package>> GetAllPackagesAsync()
         {
             try
             {
-                // Return all packages (including inactive) so admin pages and exports
-                // can see hidden/inactive records. Public-facing APIs use other
-                // methods that filter by `IsActive` where appropriate.
                 return await _context.Packages
-                    .OrderBy(p => p.Name)
+                    .Find(FilterDefinition<Package>.Empty)
+                    .SortBy(p => p.Name)
                     .ToListAsync();
             }
             catch (Exception ex)
@@ -40,14 +41,14 @@ namespace Purrnet.Services
         {
             try
             {
-                var query = _context.Packages.Where(p => p.Name == packageName && p.IsActive);
+                var filter = Builders<Package>.Filter.And(
+                    Builders<Package>.Filter.Eq(p => p.Name, packageName),
+                    Builders<Package>.Filter.Eq(p => p.IsActive, true));
 
                 if (!string.IsNullOrEmpty(version))
-                {
-                    query = query.Where(p => p.Version == version);
-                }
+                    filter &= Builders<Package>.Filter.Eq(p => p.Version, version);
 
-                return await query.FirstOrDefaultAsync();
+                return await _context.Packages.Find(filter).FirstOrDefaultAsync();
             }
             catch (Exception ex)
             {
@@ -56,11 +57,13 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<Package?> GetPackageByIdAsync(int id)
+        public async Task<Package?> GetPackageByIdAsync(string id)
         {
             try
             {
-                return await _context.Packages.FindAsync(id);
+                return await _context.Packages
+                    .Find(p => p.Id == id)
+                    .FirstOrDefaultAsync();
             }
             catch (Exception ex)
             {
@@ -69,176 +72,141 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<bool> SavePackageAsync(PurrConfig PurrConfig, string createdBy, int? ownerId = null)
+        public async Task<bool> SavePackageAsync(PurrConfig purrConfig, string createdBy, string? ownerId = null)
         {
             try
             {
                 // Check if package already exists
-                var existingPackage = await _context.Packages
-                    .FirstOrDefaultAsync(p => p.Name == PurrConfig.Name);
+                var existing = await _context.Packages
+                    .Find(p => p.Name == purrConfig.Name)
+                    .FirstOrDefaultAsync();
 
-                if (existingPackage != null)
+                if (existing != null)
                 {
-                    _logger.LogInformation("Package {PackageName} already exists; updating existing record", Regex.Replace(PurrConfig.Name, _sanitizeRegex, ""));
-                    // Delegate to update flow so version history is recorded and fields are refreshed
-                    return await UpdatePackageAsync(existingPackage.Id, PurrConfig, createdBy);
+                    _logger.LogInformation("Package {PackageName} already exists; updating", purrConfig.Name);
+                    return await UpdatePackageAsync(existing.Id, purrConfig, createdBy);
                 }
 
-                // Validate ownerId points to an existing user to avoid FK failures
-                int? validOwnerId = ownerId;
-                if (ownerId.HasValue)
+                // Validate ownerId
+                if (!string.IsNullOrEmpty(ownerId))
                 {
-                    var owner = await _context.Users.FindAsync(ownerId.Value);
+                    var owner = await _context.Users.Find(u => u.Id == ownerId).FirstOrDefaultAsync();
                     if (owner == null)
                     {
-                        _logger.LogWarning("OwnerId {OwnerId} not found for package {PackageName}; clearing OwnerId", ownerId, Regex.Replace(PurrConfig.Name, _sanitizeRegex, ""));
-                        validOwnerId = null;
+                        _logger.LogWarning("OwnerId {OwnerId} not found; clearing OwnerId", ownerId);
+                        ownerId = null;
                     }
                 }
 
                 var package = new Package
                 {
-                    Name = PurrConfig.Name,
-                    Version = PurrConfig.Version,
-                    Authors = PurrConfig.Authors ?? new List<string>(),
-                    SupportedPlatforms = PurrConfig.SupportedPlatforms ?? new List<string>(),
-                    Description = PurrConfig.Description ?? string.Empty,
-                    ReadmeUrl = PurrConfig.ReadmeUrl ?? string.Empty,
-                    License = PurrConfig.License ?? string.Empty,
-                    LicenseUrl = PurrConfig.LicenseUrl ?? string.Empty,
-                    Keywords = PurrConfig.Keywords ?? new List<string>(),
-                    Homepage = PurrConfig.Homepage ?? string.Empty,
-                    IssueTracker = PurrConfig.IssueTracker ?? string.Empty,
-                    Git = PurrConfig.Git,
-                    Installer = PurrConfig.Installer ?? string.Empty,
-                    MainFile = PurrConfig.MainFile,
-                    Dependencies = PurrConfig.Dependencies ?? new List<string>(),
-                    IconUrl = PurrConfig.IconUrl ?? string.Empty,
-                    InstallCommand = $"Purr install {PurrConfig.Name}",
+                    Name = purrConfig.Name,
+                    Version = purrConfig.Version,
+                    Authors = purrConfig.Authors ?? new List<string>(),
+                    SupportedPlatforms = purrConfig.SupportedPlatforms ?? new List<string>(),
+                    Description = purrConfig.Description ?? string.Empty,
+                    ReadmeUrl = purrConfig.ReadmeUrl ?? string.Empty,
+                    License = purrConfig.License ?? string.Empty,
+                    LicenseUrl = purrConfig.LicenseUrl ?? string.Empty,
+                    Keywords = purrConfig.Keywords ?? new List<string>(),
+                    Categories = NormalizeCategories(purrConfig.Categories),
+                    Homepage = purrConfig.Homepage ?? string.Empty,
+                    IssueTracker = purrConfig.IssueTracker ?? string.Empty,
+                    Git = purrConfig.Git,
+                    Installer = purrConfig.Installer ?? string.Empty,
+                    MainFile = purrConfig.MainFile,
+                    Dependencies = purrConfig.Dependencies ?? new List<string>(),
+                    IconUrl = purrConfig.IconUrl ?? string.Empty,
+                    InstallCommand = $"Purr install {purrConfig.Name}",
                     Downloads = 0,
                     ViewCount = 0,
                     CreatedAt = DateTime.UtcNow,
                     LastUpdated = DateTime.UtcNow,
                     CreatedBy = createdBy,
-                    OwnerId = validOwnerId,
+                    OwnerId = ownerId,
                     IsActive = true,
                     ApprovalStatus = "Pending"
                 };
 
-                // Handle categories: ensure Category entities exist and link them
-                if (PurrConfig.Categories != null && PurrConfig.Categories.Any())
-                {
-                    var categoryNames = PurrConfig.Categories
-                        .Where(c => !string.IsNullOrWhiteSpace(c))
-                        .Select(c => c.Trim())
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+                await _context.Packages.InsertOneAsync(package);
+                await EnsureCategoriesAsync(package.Categories);
 
-                    var existing = await _context.Categories
-                        .Where(c => categoryNames.Contains(c.Name))
-                        .ToListAsync();
-
-                    var missing = categoryNames
-                        .Except(existing.Select(e => e.Name), StringComparer.OrdinalIgnoreCase)
-                        .Select(n => new Category { Name = n })
-                        .ToList();
-
-                    if (missing.Any())
-                    {
-                        _context.Categories.AddRange(missing);
-                    }
-
-                    package.CategoryEntities = existing.Concat(missing).ToList();
-                    // Also keep legacy string list for compatibility
-                    package.Categories = categoryNames;
-                }
-
-                _context.Packages.Add(package);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Package {PackageName} saved successfully by {CreatedBy} (Owner ID: {OwnerId})", 
-                    Regex.Replace(PurrConfig.Name, _sanitizeRegex, ""), Regex.Replace(createdBy, _sanitizeRegex, ""), ownerId);
+                _logger.LogInformation("Package {PackageName} saved by {CreatedBy}", purrConfig.Name, createdBy);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error saving package {PackageName}", Regex.Replace(PurrConfig.Name, _sanitizeRegex, ""));
+                _logger.LogError(ex, "Error saving package {PackageName}", purrConfig.Name);
                 return false;
             }
         }
 
-        // Overload for backward compatibility
-        public async Task<bool> SavePackageAsync(PurrConfig PurrConfig, string createdBy)
-        {
-            return await SavePackageAsync(PurrConfig, createdBy, null);
-        }
+        public async Task<bool> SavePackageAsync(PurrConfig purrConfig, string createdBy)
+            => await SavePackageAsync(purrConfig, createdBy, null);
 
-        public async Task<bool> UpdatePackageAsync(int id, PurrConfig PurrConfig, string? updatedBy = null)
+        public async Task<bool> UpdatePackageAsync(string id, PurrConfig purrConfig, string? updatedBy = null)
         {
             try
             {
-                var package = await _context.Packages.FindAsync(id);
-                if (package == null)
-                {
-                    return false;
-                }
+                var package = await _context.Packages.Find(p => p.Id == id).FirstOrDefaultAsync();
+                if (package == null) return false;
 
-                // Record the current version in history before updating
-                if (!string.IsNullOrEmpty(package.Version) && package.Version != PurrConfig.Version)
+                // Track version history
+                if (!string.IsNullOrEmpty(package.Version) && package.Version != purrConfig.Version)
                 {
                     var history = package.VersionHistory ?? new List<string>();
                     if (!history.Contains(package.Version))
-                    {
                         history.Add(package.Version);
-                        package.VersionHistory = history;
-                    }
-                }
 
-                package.Version = PurrConfig.Version;
-                package.Authors = PurrConfig.Authors ?? new List<string>();
-                package.SupportedPlatforms = PurrConfig.SupportedPlatforms ?? new List<string>();
-                package.Description = PurrConfig.Description ?? string.Empty;
-                package.ReadmeUrl = PurrConfig.ReadmeUrl ?? string.Empty;
-                package.License = PurrConfig.License ?? string.Empty;
-                package.LicenseUrl = PurrConfig.LicenseUrl ?? string.Empty;
-                package.Keywords = PurrConfig.Keywords ?? new List<string>();
-                package.Homepage = PurrConfig.Homepage ?? string.Empty;
-                package.IssueTracker = PurrConfig.IssueTracker ?? string.Empty;
-                package.Git = PurrConfig.Git;
-                package.Installer = PurrConfig.Installer ?? string.Empty;
-                package.MainFile = PurrConfig.MainFile;
-                package.Dependencies = PurrConfig.Dependencies ?? new List<string>();
-                package.IconUrl = PurrConfig.IconUrl ?? string.Empty;
-                // Update categories relationally and as legacy list
-                if (PurrConfig.Categories != null)
+                    var update = Builders<Package>.Update
+                        .Set(p => p.Version, purrConfig.Version)
+                        .Set(p => p.Authors, purrConfig.Authors ?? new List<string>())
+                        .Set(p => p.SupportedPlatforms, purrConfig.SupportedPlatforms ?? new List<string>())
+                        .Set(p => p.Description, purrConfig.Description ?? string.Empty)
+                        .Set(p => p.ReadmeUrl, purrConfig.ReadmeUrl ?? string.Empty)
+                        .Set(p => p.License, purrConfig.License ?? string.Empty)
+                        .Set(p => p.LicenseUrl, purrConfig.LicenseUrl ?? string.Empty)
+                        .Set(p => p.Keywords, purrConfig.Keywords ?? new List<string>())
+                        .Set(p => p.Categories, NormalizeCategories(purrConfig.Categories))
+                        .Set(p => p.Homepage, purrConfig.Homepage ?? string.Empty)
+                        .Set(p => p.IssueTracker, purrConfig.IssueTracker ?? string.Empty)
+                        .Set(p => p.Git, purrConfig.Git)
+                        .Set(p => p.Installer, purrConfig.Installer ?? string.Empty)
+                        .Set(p => p.MainFile, purrConfig.MainFile)
+                        .Set(p => p.Dependencies, purrConfig.Dependencies ?? new List<string>())
+                        .Set(p => p.IconUrl, purrConfig.IconUrl ?? string.Empty)
+                        .Set(p => p.VersionHistory, history)
+                        .Set(p => p.LastUpdated, DateTime.UtcNow)
+                        .Set(p => p.UpdatedBy, updatedBy);
+
+                    await _context.Packages.UpdateOneAsync(p => p.Id == id, update);
+                }
+                else
                 {
-                    var categoryNames = PurrConfig.Categories
-                        .Where(c => !string.IsNullOrWhiteSpace(c))
-                        .Select(c => c.Trim())
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+                    var update = Builders<Package>.Update
+                        .Set(p => p.Version, purrConfig.Version)
+                        .Set(p => p.Authors, purrConfig.Authors ?? new List<string>())
+                        .Set(p => p.SupportedPlatforms, purrConfig.SupportedPlatforms ?? new List<string>())
+                        .Set(p => p.Description, purrConfig.Description ?? string.Empty)
+                        .Set(p => p.ReadmeUrl, purrConfig.ReadmeUrl ?? string.Empty)
+                        .Set(p => p.License, purrConfig.License ?? string.Empty)
+                        .Set(p => p.LicenseUrl, purrConfig.LicenseUrl ?? string.Empty)
+                        .Set(p => p.Keywords, purrConfig.Keywords ?? new List<string>())
+                        .Set(p => p.Categories, NormalizeCategories(purrConfig.Categories))
+                        .Set(p => p.Homepage, purrConfig.Homepage ?? string.Empty)
+                        .Set(p => p.IssueTracker, purrConfig.IssueTracker ?? string.Empty)
+                        .Set(p => p.Git, purrConfig.Git)
+                        .Set(p => p.Installer, purrConfig.Installer ?? string.Empty)
+                        .Set(p => p.MainFile, purrConfig.MainFile)
+                        .Set(p => p.Dependencies, purrConfig.Dependencies ?? new List<string>())
+                        .Set(p => p.IconUrl, purrConfig.IconUrl ?? string.Empty)
+                        .Set(p => p.LastUpdated, DateTime.UtcNow)
+                        .Set(p => p.UpdatedBy, updatedBy);
 
-                    var existing = await _context.Categories
-                        .Where(c => categoryNames.Contains(c.Name))
-                        .ToListAsync();
-
-                    var missing = categoryNames
-                        .Except(existing.Select(e => e.Name), StringComparer.OrdinalIgnoreCase)
-                        .Select(n => new Category { Name = n })
-                        .ToList();
-
-                    if (missing.Any()) _context.Categories.AddRange(missing);
-
-                    // Reload package's category collection
-                    await _context.Entry(package).Collection(p => p.CategoryEntities).LoadAsync();
-                    package.CategoryEntities.Clear();
-                    package.CategoryEntities.AddRange(existing.Concat(missing));
-                    package.Categories = categoryNames;
+                    await _context.Packages.UpdateOneAsync(p => p.Id == id, update);
                 }
-                package.LastUpdated = DateTime.UtcNow;
-                package.UpdatedBy = updatedBy;
 
-                await _context.SaveChangesAsync();
+                await EnsureCategoriesAsync(NormalizeCategories(purrConfig.Categories));
                 return true;
             }
             catch (Exception ex)
@@ -248,19 +216,12 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<bool> DeletePackageAsync(int id)
+        public async Task<bool> DeletePackageAsync(string id)
         {
             try
             {
-                var package = await _context.Packages.FindAsync(id);
-                if (package == null)
-                {
-                    return false;
-                }
-
-                _context.Packages.Remove(package);
-                await _context.SaveChangesAsync();
-                return true;
+                var result = await _context.Packages.DeleteOneAsync(p => p.Id == id);
+                return result.DeletedCount > 0;
             }
             catch (Exception ex)
             {
@@ -269,43 +230,15 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<List<string>> GetPackageVersionsAsync(string packageName)
-        {
-            var package = await _context.Packages
-                .Where(p => p.Name == packageName && p.IsActive)
-                .FirstOrDefaultAsync();
-
-            if (package == null)
-                return new List<string>();
-
-            var versions = new List<string>();
-            if (package.VersionHistory != null)
-                versions.AddRange(package.VersionHistory);
-
-            // Add the current version at the top
-            if (!string.IsNullOrEmpty(package.Version) && !versions.Contains(package.Version))
-                versions.Insert(0, package.Version);
-            else if (!string.IsNullOrEmpty(package.Version))
-            {
-                versions.Remove(package.Version);
-                versions.Insert(0, package.Version);
-            }
-
-            return versions;
-        }
-
-        public async Task<bool> TogglePackageStatusAsync(int id)
+        public async Task<bool> TogglePackageStatusAsync(string id)
         {
             try
             {
-                var package = await _context.Packages.FindAsync(id);
-                if (package == null)
-                {
-                    return false;
-                }
+                var package = await _context.Packages.Find(p => p.Id == id).FirstOrDefaultAsync();
+                if (package == null) return false;
 
-                package.IsActive = !package.IsActive;
-                await _context.SaveChangesAsync();
+                var update = Builders<Package>.Update.Set(p => p.IsActive, !package.IsActive);
+                await _context.Packages.UpdateOneAsync(p => p.Id == id, update);
                 return true;
             }
             catch (Exception ex)
@@ -315,58 +248,45 @@ namespace Purrnet.Services
             }
         }
 
+        // ─── Search ───────────────────────────────────────────────────────────────
+
         public async Task<SearchResult> SearchPackagesAsync(string? query = null, string? sort = null, int page = 1, int pageSize = 20)
         {
             try
             {
-                var queryable = _context.Packages.Where(p => p.IsActive);
+                var allActive = await _context.Packages
+                    .Find(p => p.IsActive)
+                    .ToListAsync();
 
-                List<Package> filteredPackages;
+                IEnumerable<Package> filtered = allActive;
 
-                // Apply search filter (client-side for case-insensitive search)
                 if (!string.IsNullOrEmpty(query))
                 {
-                    var searchTerm = query;
-                    filteredPackages = await queryable.ToListAsync();
-                    filteredPackages = filteredPackages.Where(p =>
-                        (!string.IsNullOrEmpty(p.Name) && p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
-                        (!string.IsNullOrEmpty(p.Description) && p.Description.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)) ||
-                        (p.Authors != null && p.Authors.Any(a => !string.IsNullOrEmpty(a) && a.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))) ||
-                        (p.Keywords != null && p.Keywords.Any(k => !string.IsNullOrEmpty(k) && k.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))) ||
-                        (p.Categories != null && p.Categories.Any(c => !string.IsNullOrEmpty(c) && c.Contains(searchTerm, StringComparison.OrdinalIgnoreCase)))
-                    ).ToList();
-                }
-                else
-                {
-                    filteredPackages = await queryable.ToListAsync();
+                    filtered = allActive.Where(p =>
+                        p.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                        p.Description.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                        (p.Authors?.Any(a => a.Contains(query, StringComparison.OrdinalIgnoreCase)) ?? false) ||
+                        (p.Keywords?.Any(k => k.Contains(query, StringComparison.OrdinalIgnoreCase)) ?? false) ||
+                        (p.Categories?.Any(c => c.Contains(query, StringComparison.OrdinalIgnoreCase)) ?? false));
                 }
 
-                // Apply sorting (client-side)
-                IEnumerable<Package> sortedPackages = sort?.ToLower() switch
+                IEnumerable<Package> sorted = sort?.ToLower() switch
                 {
-                    "mostdownloads" => filteredPackages.OrderByDescending(p => p.Downloads),
-                    "leastdownloads" => filteredPackages.OrderBy(p => p.Downloads),
-                    "recentlyupdated" => filteredPackages.OrderByDescending(p => p.LastUpdated),
-                    "recentlyuploaded" => filteredPackages.OrderByDescending(p => p.CreatedAt),
-                    "oldestupdated" => filteredPackages.OrderBy(p => p.LastUpdated),
-                    "oldestuploaded" => filteredPackages.OrderBy(p => p.CreatedAt),
-                    "mostviewed" => filteredPackages.OrderByDescending(p => p.ViewCount),
-                    "toprated" => filteredPackages.OrderByDescending(p => p.Rating),
-                    _ => filteredPackages.OrderBy(p => p.Name)
+                    "mostdownloads" => filtered.OrderByDescending(p => p.Downloads),
+                    "leastdownloads" => filtered.OrderBy(p => p.Downloads),
+                    "recentlyupdated" => filtered.OrderByDescending(p => p.LastUpdated),
+                    "recentlyuploaded" => filtered.OrderByDescending(p => p.CreatedAt),
+                    "oldestupdated" => filtered.OrderBy(p => p.LastUpdated),
+                    "oldestuploaded" => filtered.OrderBy(p => p.CreatedAt),
+                    "mostviewed" => filtered.OrderByDescending(p => p.ViewCount),
+                    "toprated" => filtered.OrderByDescending(p => p.Rating),
+                    _ => filtered.OrderBy(p => p.Name)
                 };
 
-                var totalCount = sortedPackages.Count();
-                var packages = sortedPackages
-                    .Skip((page - 1) * pageSize)
-                    .Take(pageSize)
-                    .ToList();
+                var total = sorted.Count();
+                var packages = sorted.Skip((page - 1) * pageSize).Take(pageSize).ToList();
 
-                return new SearchResult
-                {
-                    Packages = packages,
-                    TotalCount = totalCount,
-                    Query = query ?? string.Empty
-                };
+                return new SearchResult { Packages = packages, TotalCount = total, Query = query ?? string.Empty };
             }
             catch (Exception ex)
             {
@@ -377,155 +297,37 @@ namespace Purrnet.Services
 
         public async Task<PackageListResponse> GetPackageListAsync(string? sort = null, string? search = null, bool includeDetails = false)
         {
-            var searchResult = await SearchPackagesAsync(search, sort, 1, 1000);
-
+            var result = await SearchPackagesAsync(search, sort, 1, 1000);
             var response = new PackageListResponse
             {
-                PackageCount = searchResult.TotalCount,
-                Packages = searchResult.Packages.Select(p => p.Name).ToList()
+                PackageCount = result.TotalCount,
+                Packages = result.Packages.Select(p => p.Name).ToList()
             };
 
             if (includeDetails)
             {
-                response.PackageDetails = searchResult.Packages.Select(p => new PurrConfig
-                {
-                    Name = p.Name,
-                    Version = p.Version,
-                    Authors = p.Authors,
-                    Description = p.Description,
-                    Keywords = p.Keywords,
-                    Homepage = p.Homepage,
-                    IssueTracker = p.IssueTracker,
-                    Git = p.Git,
-                    Installer = p.Installer,
-                    Dependencies = p.Dependencies,
-                    MainFile = p.MainFile,
-                    IconUrl = p.IconUrl
-                }).ToList();
+                response.PackageDetails = result.Packages.Select(ToConfig).ToList();
             }
 
             return response;
         }
 
-        public async Task<bool> MarkPackageOutdatedAsync(int packageId, bool outdated = true)
-        {
-            try
-            {
-                var pkg = await _context.Packages.FindAsync(packageId);
-                if (pkg == null) return false;
-                pkg.IsOutdated = outdated;
-                await _context.SaveChangesAsync();
-                _logger.LogInformation("Package {PackageName} (ID {PackageId}) outdated flag set to {Outdated}", pkg.Name, packageId, outdated);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error marking package {PackageId} outdated", packageId);
-                return false;
-            }
-        }
-
-        public async Task<PackageStatistics> GetStatisticsAsync()
-        {
-            try
-            {
-                var packages = await _context.Packages.ToListAsync();
-                var activePackages = packages.Where(p => p.IsActive).ToList();
-
-                return new PackageStatistics
-                {
-                    TotalPackages = packages.Count,
-                    ActivePackages = activePackages.Count,
-                    TotalDownloads = activePackages.Sum(p => p.Downloads),
-                    TotalViews = activePackages.Sum(p => p.ViewCount),
-                    PopularAuthors = packages.Where(p => p.Authors != null && p.Authors.Any())
-                        .SelectMany(p => p.Authors.Select(a => a.Trim()))
-                        .GroupBy(author => author)
-                        .OrderByDescending(g => g.Count())
-                        .Take(20)
-                        .Select(g => g.Key)
-                        .ToList(),
-                    MostDownloaded = activePackages.OrderByDescending(p => p.Downloads).Take(5).ToList(),
-                    RecentlyAdded = activePackages.OrderByDescending(p => p.CreatedAt).Take(5).ToList(),
-                    LastUpdated = DateTime.UtcNow
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving package statistics");
-                return new PackageStatistics { LastUpdated = DateTime.UtcNow };
-            }
-        }
-
-        public async Task<bool> IncrementDownloadCountAsync(int packageId)
-        {
-            try
-            {
-                var package = await _context.Packages.FindAsync(packageId);
-                if (package != null)
-                {
-                    package.Downloads++;
-                    await _context.SaveChangesAsync();
-                    return true;
-                }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error incrementing download count for package {PackageId}", packageId);
-                return false;
-            }
-        }
-
-        public async Task<bool> IncrementViewCountAsync(int packageId)
-        {
-            try
-            {
-                var package = await _context.Packages.FindAsync(packageId);
-                if (package != null)
-                {
-                    package.ViewCount++;
-                    await _context.SaveChangesAsync();
-                    return true;
-                }
-                return false;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error incrementing view count for package {PackageId}", packageId);
-                return false;
-            }
-        }
-
-        public async Task<bool> InitializeDatabaseAsync()
-        {
-            try
-            {
-                await _context.Database.EnsureCreatedAsync();
-                
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error initializing database");
-                return false;
-            }
-        }
-
-        
-
         public async Task<List<Package>> GetPackagesByTagAsync(string tag)
         {
             try
             {
+                var filter = Builders<Package>.Filter.And(
+                    Builders<Package>.Filter.Eq(p => p.IsActive, true),
+                    Builders<Package>.Filter.AnyEq(p => p.Keywords, tag));
+
                 return await _context.Packages
-                    .Where(p => p.IsActive && p.Keywords.Contains(tag))
-                    .OrderByDescending(p => p.Downloads)
+                    .Find(filter)
+                    .SortByDescending(p => p.Downloads)
                     .ToListAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving packages by tag {Tag}", Regex.Replace(tag, _sanitizeRegex, ""));
+                _logger.LogError(ex, "Error retrieving packages by tag {Tag}", tag);
                 return new List<Package>();
             }
         }
@@ -534,14 +336,18 @@ namespace Purrnet.Services
         {
             try
             {
+                var filter = Builders<Package>.Filter.And(
+                    Builders<Package>.Filter.Eq(p => p.IsActive, true),
+                    Builders<Package>.Filter.AnyEq(p => p.Authors, author));
+
                 return await _context.Packages
-                    .Where(p => p.IsActive && p.Authors.Contains(author))
-                    .OrderByDescending(p => p.CreatedAt)
+                    .Find(filter)
+                    .SortByDescending(p => p.CreatedAt)
                     .ToListAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving packages by author {Author}", Regex.Replace(author, _sanitizeRegex, ""));
+                _logger.LogError(ex, "Error retrieving packages by author {Author}", author);
                 return new List<Package>();
             }
         }
@@ -550,15 +356,116 @@ namespace Purrnet.Services
         {
             try
             {
+                var filter = Builders<Package>.Filter.And(
+                    Builders<Package>.Filter.Eq(p => p.IsActive, true),
+                    Builders<Package>.Filter.AnyEq(p => p.Categories, category));
+
                 return await _context.Packages
-                    .Where(p => p.IsActive && p.CategoryEntities.Any(c => c.Name == category))
-                    .OrderByDescending(p => p.Downloads)
+                    .Find(filter)
+                    .SortByDescending(p => p.Downloads)
                     .ToListAsync();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving packages by category {Category}", Regex.Replace(category, _sanitizeRegex, ""));
+                _logger.LogError(ex, "Error retrieving packages by category {Category}", category);
                 return new List<Package>();
+            }
+        }
+
+        public async Task<List<string>> GetPackageVersionsAsync(string packageName)
+        {
+            var package = await _context.Packages
+                .Find(p => p.Name == packageName && p.IsActive)
+                .FirstOrDefaultAsync();
+
+            if (package == null) return new List<string>();
+
+            var versions = new List<string>(package.VersionHistory ?? new List<string>());
+            if (!string.IsNullOrEmpty(package.Version))
+            {
+                versions.Remove(package.Version);
+                versions.Insert(0, package.Version);
+            }
+            return versions;
+        }
+
+        // ─── Statistics ───────────────────────────────────────────────────────────
+
+        public async Task<PackageStatistics> GetStatisticsAsync()
+        {
+            try
+            {
+                var packages = await _context.Packages.Find(FilterDefinition<Package>.Empty).ToListAsync();
+                var active = packages.Where(p => p.IsActive).ToList();
+
+                return new PackageStatistics
+                {
+                    TotalPackages = packages.Count,
+                    ActivePackages = active.Count,
+                    TotalDownloads = active.Sum(p => p.Downloads),
+                    TotalViews = active.Sum(p => p.ViewCount),
+                    PopularAuthors = packages
+                        .SelectMany(p => p.Authors ?? new List<string>())
+                        .Select(a => a.Trim())
+                        .GroupBy(a => a)
+                        .OrderByDescending(g => g.Count())
+                        .Take(20)
+                        .Select(g => g.Key)
+                        .ToList(),
+                    MostDownloaded = active.OrderByDescending(p => p.Downloads).Take(5).ToList(),
+                    RecentlyAdded = active.OrderByDescending(p => p.CreatedAt).Take(5).ToList(),
+                    LastUpdated = DateTime.UtcNow
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving statistics");
+                return new PackageStatistics { LastUpdated = DateTime.UtcNow };
+            }
+        }
+
+        public async Task<bool> IncrementDownloadCountAsync(string packageId)
+        {
+            try
+            {
+                var update = Builders<Package>.Update.Inc(p => p.Downloads, 1);
+                var result = await _context.Packages.UpdateOneAsync(p => p.Id == packageId, update);
+                return result.ModifiedCount > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error incrementing download count for {PackageId}", packageId);
+                return false;
+            }
+        }
+
+        public async Task<bool> IncrementViewCountAsync(string packageId)
+        {
+            try
+            {
+                var update = Builders<Package>.Update.Inc(p => p.ViewCount, 1);
+                var result = await _context.Packages.UpdateOneAsync(p => p.Id == packageId, update);
+                return result.ModifiedCount > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error incrementing view count for {PackageId}", packageId);
+                return false;
+            }
+        }
+
+        public async Task<bool> MarkPackageOutdatedAsync(string packageId, bool outdated = true)
+        {
+            try
+            {
+                var update = Builders<Package>.Update.Set(p => p.IsOutdated, outdated);
+                var result = await _context.Packages.UpdateOneAsync(p => p.Id == packageId, update);
+                return result.ModifiedCount > 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error marking package {PackageId} outdated", packageId);
+                return false;
             }
         }
 
@@ -566,9 +473,9 @@ namespace Purrnet.Services
         {
             try
             {
-                var packages = await _context.Packages.Where(p => p.IsActive).ToListAsync();
+                var packages = await _context.Packages.Find(p => p.IsActive).ToListAsync();
                 return packages
-                    .SelectMany(p => p.Keywords)
+                    .SelectMany(p => p.Keywords ?? new List<string>())
                     .GroupBy(t => t)
                     .OrderByDescending(g => g.Count())
                     .Take(limit)
@@ -586,9 +493,9 @@ namespace Purrnet.Services
         {
             try
             {
-                var packages = await _context.Packages.Where(p => p.IsActive).ToListAsync();
+                var packages = await _context.Packages.Find(p => p.IsActive).ToListAsync();
                 return packages
-                    .SelectMany(p => p.Authors)
+                    .SelectMany(p => p.Authors ?? new List<string>())
                     .GroupBy(a => a)
                     .OrderByDescending(g => g.Count())
                     .Take(limit)
@@ -606,11 +513,14 @@ namespace Purrnet.Services
         {
             try
             {
-                return await _context.Categories
-                    .OrderByDescending(c => c.Packages.Count)
+                var packages = await _context.Packages.Find(p => p.IsActive).ToListAsync();
+                return packages
+                    .SelectMany(p => p.Categories ?? new List<string>())
+                    .GroupBy(c => c)
+                    .OrderByDescending(g => g.Count())
                     .Take(limit)
-                    .Select(c => c.Name)
-                    .ToListAsync();
+                    .Select(g => g.Key)
+                    .ToList();
             }
             catch (Exception ex)
             {
@@ -619,13 +529,27 @@ namespace Purrnet.Services
             }
         }
 
+        // ─── Database Management ──────────────────────────────────────────────────
+
+        public async Task<bool> InitializeDatabaseAsync()
+        {
+            try
+            {
+                await _context.SeedDefaultCategoriesAsync();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error initializing database");
+                return false;
+            }
+        }
+
         public async Task<bool> ClearAllDataAsync()
         {
             try
             {
-                var packages = await _context.Packages.ToListAsync();
-                _context.Packages.RemoveRange(packages);
-                await _context.SaveChangesAsync();
+                await _context.Packages.DeleteManyAsync(FilterDefinition<Package>.Empty);
                 _logger.LogInformation("Cleared all package data");
                 return true;
             }
@@ -647,143 +571,120 @@ namespace Purrnet.Services
                 }
 
                 var json = await File.ReadAllTextAsync(jsonFilePath);
-                // Try to deserialize rich export format first (includes owner info)
+
+                // Try rich export format first
                 List<ExportPackageDto>? exported = null;
-                try
-                {
-                    exported = JsonSerializer.Deserialize<List<ExportPackageDto>>(json);
-                }
-                catch { /* fall back below */ }
+                try { exported = JsonSerializer.Deserialize<List<ExportPackageDto>>(json); }
+                catch { }
 
                 if (exported != null && exported.Any())
                 {
                     int importedCount = 0;
                     foreach (var item in exported)
                     {
-                        int? ownerId = null;
+                        string? ownerId = null;
                         if (item.Owner != null)
                         {
-                            // Try to find existing user by GitHubId, then Email, then Username
                             User? user = null;
                             if (!string.IsNullOrWhiteSpace(item.Owner.GitHubId))
-                            {
-                                user = await _context.Users.FirstOrDefaultAsync(u => u.GitHubId == item.Owner.GitHubId);
-                            }
+                                user = await _context.Users.Find(u => u.GitHubId == item.Owner.GitHubId).FirstOrDefaultAsync();
                             if (user == null && !string.IsNullOrWhiteSpace(item.Owner.Email))
-                            {
-                                user = await _context.Users.FirstOrDefaultAsync(u => u.Email == item.Owner.Email);
-                            }
+                                user = await _context.Users.Find(u => u.Email == item.Owner.Email).FirstOrDefaultAsync();
                             if (user == null && !string.IsNullOrWhiteSpace(item.Owner.Username))
-                            {
-                                user = await _context.Users.FirstOrDefaultAsync(u => u.Username == item.Owner.Username);
-                            }
+                                user = await _context.Users.Find(u => u.Username == item.Owner.Username).FirstOrDefaultAsync();
 
                             if (user == null)
                             {
-                                // Create a lightweight placeholder user so ownership can be tracked across instances
                                 user = new User
                                 {
                                     GitHubId = item.Owner.GitHubId ?? string.Empty,
-                                    Username = item.Owner.Username ?? (item.Owner.GitHubId ?? "unknown"),
+                                    Username = item.Owner.Username ?? item.Owner.GitHubId ?? "unknown",
                                     Email = item.Owner.Email ?? string.Empty,
                                     AvatarUrl = string.Empty,
                                     CreatedAt = DateTime.UtcNow,
                                     LastLoginAt = DateTime.UtcNow,
                                     IsAdmin = false
                                 };
-                                _context.Users.Add(user);
-                                await _context.SaveChangesAsync();
+                                await _context.Users.InsertOneAsync(user);
                             }
-
                             ownerId = user.Id;
                         }
 
                         if (await SavePackageAsync(item.PurrConfig, "import", ownerId))
-                        {
                             importedCount++;
-                        }
                     }
 
-                    _logger.LogInformation("Imported {ImportedCount} out of {TotalCount} packages from {FilePath}", importedCount, exported.Count, jsonFilePath);
+                    _logger.LogInformation("Imported {ImportedCount}/{Total} packages from {FilePath}", importedCount, exported.Count, jsonFilePath);
                     return true;
                 }
 
-                // Fallback to legacy simple PurrConfig array
-                var PurrConfigs = JsonSerializer.Deserialize<List<PurrConfig>>(json);
-
-                if (PurrConfigs == null || !PurrConfigs.Any())
+                // Fallback: legacy PurrConfig array
+                var configs = JsonSerializer.Deserialize<List<PurrConfig>>(json);
+                if (configs == null || !configs.Any())
                 {
-                    _logger.LogWarning("No packages found in JSON file: {FilePath}", jsonFilePath);
+                    _logger.LogWarning("No packages in {FilePath}", jsonFilePath);
                     return true;
                 }
 
-                int legacyImported = 0;
-                foreach (var PurrConfig in PurrConfigs)
-                {
-                    if (await SavePackageAsync(PurrConfig, "import"))
-                    {
-                        legacyImported++;
-                    }
-                }
+                int legacy = 0;
+                foreach (var c in configs)
+                    if (await SavePackageAsync(c, "import")) legacy++;
 
-                _logger.LogInformation("Imported {ImportedCount} out of {TotalCount} packages from {FilePath}", legacyImported, PurrConfigs.Count, jsonFilePath);
+                _logger.LogInformation("Imported {Count}/{Total} packages from {FilePath}", legacy, configs.Count, jsonFilePath);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error importing packages from JSON file: {FilePath}", jsonFilePath);
+                _logger.LogError(ex, "Error importing packages from {FilePath}", jsonFilePath);
                 return false;
             }
         }
 
-        public Task<bool> ExportPackagesToJsonAsync(string jsonFilePath)
+        public async Task<bool> ExportPackagesToJsonAsync(string jsonFilePath)
         {
             try
             {
-                var packages = _context.Packages
-                    .Include(p => p.Owner)
+                var packages = await _context.Packages.Find(FilterDefinition<Package>.Empty).ToListAsync();
+
+                // Bulk fetch owners
+                var ownerIds = packages
+                    .Where(p => !string.IsNullOrEmpty(p.OwnerId))
+                    .Select(p => p.OwnerId!)
+                    .Distinct()
                     .ToList();
 
-                var exportList = packages.Select(p => new ExportPackageDto
+                var ownerFilter = Builders<User>.Filter.In(u => u.Id, ownerIds);
+                var owners = ownerIds.Any()
+                    ? (await _context.Users.Find(ownerFilter).ToListAsync())
+                        .ToDictionary(u => u.Id)
+                    : new Dictionary<string, User>();
+
+                var exportList = packages.Select(p =>
                 {
-                    PackageId = p.Id,
-                    PurrConfig = new PurrConfig
+                    owners.TryGetValue(p.OwnerId ?? string.Empty, out var owner);
+                    return new ExportPackageDto
                     {
-                        Name = p.Name,
-                        Version = p.Version,
-                        Authors = p.Authors ?? new List<string>(),
-                        SupportedPlatforms = p.SupportedPlatforms ?? new List<string>(),
-                        Description = p.Description ?? string.Empty,
-                        ReadmeUrl = p.ReadmeUrl ?? string.Empty,
-                        License = p.License ?? string.Empty,
-                        LicenseUrl = p.LicenseUrl ?? string.Empty,
-                        Keywords = p.Keywords ?? new List<string>(),
-                        Categories = p.Categories ?? new List<string>(),
-                        Homepage = p.Homepage ?? string.Empty,
-                        IssueTracker = p.IssueTracker ?? string.Empty,
-                        Git = p.Git ?? string.Empty,
-                        Installer = p.Installer ?? string.Empty,
-                        Dependencies = p.Dependencies ?? new List<string>(),
-                        IconUrl = p.IconUrl ?? string.Empty
-                    },
-                    Owner = p.Owner == null ? null : new OwnerInfo
-                    {
-                        Id = p.Owner.Id,
-                        GitHubId = p.Owner.GitHubId,
-                        Username = p.Owner.Username,
-                        Email = p.Owner.Email
-                    }
+                        PackageId = p.Id,
+                        PurrConfig = ToConfig(p),
+                        Owner = owner == null ? null : new OwnerInfo
+                        {
+                            Id = owner.Id,
+                            GitHubId = owner.GitHubId,
+                            Username = owner.Username,
+                            Email = owner.Email
+                        }
+                    };
                 }).ToList();
 
                 var json = JsonSerializer.Serialize(exportList, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(jsonFilePath, json);
+                await File.WriteAllTextAsync(jsonFilePath, json);
                 _logger.LogInformation("Exported {Count} packages to {FilePath}", exportList.Count, jsonFilePath);
-                return Task.FromResult(true);
+                return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error exporting packages to JSON file: {FilePath}", jsonFilePath);
-                return Task.FromResult(false);
+                _logger.LogError(ex, "Error exporting packages to {FilePath}", jsonFilePath);
+                return false;
             }
         }
 
@@ -791,7 +692,7 @@ namespace Purrnet.Services
         {
             try
             {
-                return await _context.Packages.CountAsync(p => p.IsActive);
+                return (int)await _context.Packages.CountDocumentsAsync(p => p.IsActive);
             }
             catch (Exception ex)
             {
@@ -800,68 +701,38 @@ namespace Purrnet.Services
             }
         }
 
-        // Migrate legacy string-based categories into relational Category entities
-        public async Task<bool> MigrateCategoriesAsync()
+        public Task<bool> MigrateCategoriesAsync()
         {
-            try
-            {
-                var packages = await _context.Packages.ToListAsync();
-                var allCategories = packages
-                    .Where(p => p.Categories != null)
-                    .SelectMany(p => p.Categories)
-                    .Where(c => !string.IsNullOrWhiteSpace(c))
-                    .Select(c => c.Trim())
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                var existing = await _context.Categories.Where(c => allCategories.Contains(c.Name)).ToListAsync();
-                var missing = allCategories.Except(existing.Select(e => e.Name), StringComparer.OrdinalIgnoreCase)
-                    .Select(n => new Category { Name = n })
-                    .ToList();
-
-                if (missing.Any()) _context.Categories.AddRange(missing);
-
-                await _context.SaveChangesAsync();
-
-                var categoryLookup = await _context.Categories.ToListAsync();
-
-                foreach (var pkg in packages)
-                {
-                    if (pkg.Categories == null || !pkg.Categories.Any()) continue;
-                    await _context.Entry(pkg).Collection(p => p.CategoryEntities).LoadAsync();
-                    pkg.CategoryEntities.Clear();
-                    var names = pkg.Categories.Select(c => c.Trim());
-                    var cats = categoryLookup.Where(c => names.Contains(c.Name)).ToList();
-                    pkg.CategoryEntities.AddRange(cats);
-                }
-
-                await _context.SaveChangesAsync();
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error migrating legacy categories");
-                return false;
-            }
+            // No relational migration needed for MongoDB; categories are embedded as strings
+            return Task.FromResult(true);
         }
 
         // ─── Reviews ──────────────────────────────────────────────────────────────
 
         public async Task<List<PackageReview>> GetPackageReviewsAsync(string packageName)
         {
+            var package = await _context.Packages
+                .Find(p => p.Name == packageName && p.IsActive)
+                .FirstOrDefaultAsync();
+
+            if (package == null) return new List<PackageReview>();
+
             return await _context.PackageReviews
-                .Where(r => r.Package != null && r.Package.Name == packageName)
-                .OrderByDescending(r => r.CreatedAt)
+                .Find(r => r.PackageId == package.Id)
+                .SortByDescending(r => r.CreatedAt)
                 .ToListAsync();
         }
 
         public async Task<(bool success, string error)> AddPackageReviewAsync(
-            string packageName, int? userId, string reviewerName,
+            string packageName, string? userId, string reviewerName,
             string? reviewerAvatarUrl, int rating, string title, string body)
         {
             try
             {
-                var package = await _context.Packages.FirstOrDefaultAsync(p => p.Name == packageName && p.IsActive);
+                var package = await _context.Packages
+                    .Find(p => p.Name == packageName && p.IsActive)
+                    .FirstOrDefaultAsync();
+
                 if (package == null)
                     return (false, "Package not found.");
 
@@ -869,10 +740,11 @@ namespace Purrnet.Services
                     return (false, "Rating must be between 1 and 5.");
 
                 // One review per logged-in user
-                if (userId.HasValue)
+                if (!string.IsNullOrEmpty(userId))
                 {
                     var exists = await _context.PackageReviews
-                        .AnyAsync(r => r.PackageId == package.Id && r.UserId == userId.Value);
+                        .Find(r => r.PackageId == package.Id && r.UserId == userId)
+                        .AnyAsync();
                     if (exists)
                         return (false, "You have already reviewed this package.");
                 }
@@ -889,18 +761,8 @@ namespace Purrnet.Services
                     CreatedAt = DateTime.UtcNow
                 };
 
-                _context.PackageReviews.Add(review);
-                await _context.SaveChangesAsync();
-
-                // Recalculate aggregate rating on the Package
-                var allRatings = await _context.PackageReviews
-                    .Where(r => r.PackageId == package.Id)
-                    .Select(r => r.Rating)
-                    .ToListAsync();
-
-                package.Rating = allRatings.Count > 0 ? allRatings.Average() : 0;
-                package.RatingCount = allRatings.Count;
-                await _context.SaveChangesAsync();
+                await _context.PackageReviews.InsertOneAsync(review);
+                await RecalculateRatingAsync(package.Id);
 
                 return (true, string.Empty);
             }
@@ -911,36 +773,32 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<bool> HasUserReviewedPackageAsync(string packageName, int userId)
+        public async Task<bool> HasUserReviewedPackageAsync(string packageName, string userId)
         {
+            var package = await _context.Packages
+                .Find(p => p.Name == packageName && p.IsActive)
+                .FirstOrDefaultAsync();
+
+            if (package == null) return false;
+
             return await _context.PackageReviews
-                .AnyAsync(r => r.Package != null && r.Package.Name == packageName && r.UserId == userId);
+                .Find(r => r.PackageId == package.Id && r.UserId == userId)
+                .AnyAsync();
         }
 
-        public async Task<bool> DeleteReviewAsync(int reviewId, int? requestingUserId, bool isAdmin)
+        public async Task<bool> DeleteReviewAsync(string reviewId, string? requestingUserId, bool isAdmin)
         {
             try
             {
-                var review = await _context.PackageReviews.Include(r => r.Package).FirstOrDefaultAsync(r => r.Id == reviewId);
+                var review = await _context.PackageReviews
+                    .Find(r => r.Id == reviewId)
+                    .FirstOrDefaultAsync();
+
                 if (review == null) return false;
                 if (!isAdmin && review.UserId != requestingUserId) return false;
 
-                _context.PackageReviews.Remove(review);
-                await _context.SaveChangesAsync();
-
-                // Recalculate aggregate rating
-                if (review.Package != null)
-                {
-                    var allRatings = await _context.PackageReviews
-                        .Where(r => r.PackageId == review.PackageId)
-                        .Select(r => r.Rating)
-                        .ToListAsync();
-
-                    review.Package.Rating = allRatings.Count > 0 ? allRatings.Average() : 0;
-                    review.Package.RatingCount = allRatings.Count;
-                    await _context.SaveChangesAsync();
-                }
-
+                await _context.PackageReviews.DeleteOneAsync(r => r.Id == reviewId);
+                await RecalculateRatingAsync(review.PackageId);
                 return true;
             }
             catch (Exception ex)
@@ -958,10 +816,13 @@ namespace Purrnet.Services
             return await BuildNodeAsync(packageName, maxDepth, visited);
         }
 
+        // ─── Helpers ──────────────────────────────────────────────────────────────
+
         private async Task<DependencyNode?> BuildNodeAsync(string packageName, int depth, HashSet<string> visited)
         {
             var package = await _context.Packages
-                .FirstOrDefaultAsync(p => p.Name == packageName && p.IsActive);
+                .Find(p => p.Name == packageName && p.IsActive)
+                .FirstOrDefaultAsync();
 
             if (package == null)
                 return new DependencyNode { Name = packageName, Resolved = false };
@@ -974,9 +835,7 @@ namespace Purrnet.Services
                 Resolved = true
             };
 
-            if (depth <= 0 || visited.Contains(packageName))
-                return node;
-
+            if (depth <= 0 || visited.Contains(packageName)) return node;
             visited.Add(packageName);
 
             foreach (var dep in package.Dependencies)
@@ -988,5 +847,60 @@ namespace Purrnet.Services
 
             return node;
         }
+
+        private async Task RecalculateRatingAsync(string packageId)
+        {
+            var ratings = await _context.PackageReviews
+                .Find(r => r.PackageId == packageId)
+                .Project(r => r.Rating)
+                .ToListAsync();
+
+            var avg = ratings.Count > 0 ? ratings.Average() : 0.0;
+            var update = Builders<Package>.Update
+                .Set(p => p.Rating, avg)
+                .Set(p => p.RatingCount, ratings.Count);
+
+            await _context.Packages.UpdateOneAsync(p => p.Id == packageId, update);
+        }
+
+        private static List<string> NormalizeCategories(List<string>? input) =>
+            input?.Where(c => !string.IsNullOrWhiteSpace(c))
+                 .Select(c => c.Trim())
+                 .Distinct(StringComparer.OrdinalIgnoreCase)
+                 .ToList() ?? new List<string>();
+
+        private async Task EnsureCategoriesAsync(List<string> names)
+        {
+            foreach (var name in names)
+            {
+                var exists = await _context.Categories
+                    .Find(c => c.Name == name)
+                    .AnyAsync();
+
+                if (!exists)
+                    await _context.Categories.InsertOneAsync(new Category { Name = name });
+            }
+        }
+
+        private static PurrConfig ToConfig(Package p) => new()
+        {
+            Name = p.Name,
+            Version = p.Version,
+            Authors = p.Authors,
+            SupportedPlatforms = p.SupportedPlatforms,
+            Description = p.Description,
+            ReadmeUrl = p.ReadmeUrl,
+            License = p.License,
+            LicenseUrl = p.LicenseUrl,
+            Keywords = p.Keywords,
+            Categories = p.Categories,
+            Homepage = p.Homepage,
+            IssueTracker = p.IssueTracker,
+            Git = p.Git,
+            Installer = p.Installer,
+            Dependencies = p.Dependencies,
+            MainFile = p.MainFile,
+            IconUrl = p.IconUrl
+        };
     }
 }

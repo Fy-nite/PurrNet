@@ -42,7 +42,7 @@ namespace Purrnet.Pages.Admin
             return Page();
         }
 
-        public async Task<IActionResult> OnPostPromoteUserAsync(int userId)
+        public async Task<IActionResult> OnPostPromoteUserAsync(string userId)
         {
             if (!User.HasClaim("IsAdmin", "True"))
             {
@@ -70,7 +70,7 @@ namespace Purrnet.Pages.Admin
             return Page();
         }
 
-        public async Task<IActionResult> OnPostRevokeAdminAsync(int userId)
+        public async Task<IActionResult> OnPostRevokeAdminAsync(string userId)
         {
             if (!User.HasClaim("IsAdmin", "True"))
             {
@@ -79,20 +79,17 @@ namespace Purrnet.Pages.Admin
 
             // Prevent revoking your own admin privileges
             var currentUserIdClaim = User.FindFirst("UserId");
-            if (currentUserIdClaim != null && int.TryParse(currentUserIdClaim.Value, out var currentUserId))
+            if (currentUserIdClaim != null && currentUserIdClaim.Value == userId)
             {
-                if (currentUserId == userId)
-                {
-                    Message = "You cannot revoke your own admin privileges.";
-                    IsSuccess = false;
+                Message = "You cannot revoke your own admin privileges.";
+                IsSuccess = false;
 
-                    // Reload data
-                    Packages = await _packageService.GetAllPackagesAsync();
-                    Statistics = await _packageService.GetStatisticsAsync();
-                    AllUsers = await _userService.GetAllUsersAsync();
+                // Reload data
+                Packages = await _packageService.GetAllPackagesAsync();
+                Statistics = await _packageService.GetStatisticsAsync();
+                AllUsers = await _userService.GetAllUsersAsync();
 
-                    return Page();
-                }
+                return Page();
             }
 
             var success = await _userService.RevokeAdminAsync(userId);
@@ -116,7 +113,7 @@ namespace Purrnet.Pages.Admin
             return Page();
         }
 
-        public async Task<IActionResult> OnPostBanUserAsync(int userId)
+        public async Task<IActionResult> OnPostBanUserAsync(string userId)
         {
             if (!User.HasClaim("IsAdmin", "True")) return Forbid();
 
@@ -131,7 +128,7 @@ namespace Purrnet.Pages.Admin
             return Page();
         }
 
-        public async Task<IActionResult> OnPostUnbanUserAsync(int userId)
+        public async Task<IActionResult> OnPostUnbanUserAsync(string userId)
         {
             if (!User.HasClaim("IsAdmin", "True")) return Forbid();
 
@@ -146,7 +143,7 @@ namespace Purrnet.Pages.Admin
             return Page();
         }
 
-        public async Task<IActionResult> OnPostReportOutdatedAsync(int packageId)
+        public async Task<IActionResult> OnPostReportOutdatedAsync(string packageId)
         {
             if (!User.HasClaim("IsAdmin", "True")) return Forbid();
 

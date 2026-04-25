@@ -6,9 +6,21 @@ namespace PurrLauncher.Services;
 
 public class PackageInstallService
 {
-    private static readonly string PackagesDir = Path.Combine(
+    private readonly SettingsService _settings;
+
+    private static readonly string DefaultPackagesDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
         ".purr", "packages");
+
+    private string PackagesDir =>
+        !string.IsNullOrWhiteSpace(_settings.CustomInstallDir)
+            ? _settings.CustomInstallDir
+            : DefaultPackagesDir;
+
+    public PackageInstallService(SettingsService settings)
+    {
+        _settings = settings;
+    }
 
     // ─── Query ────────────────────────────────────────────────────────────────
 
@@ -78,8 +90,9 @@ public class PackageInstallService
         var purrExe = FindPurrExecutable();
         if (purrExe is null)
             return (false,
-                "purr CLI not found in PATH.\n" +
-                "Install it from: https://github.com/Fy-nite/purrnet");
+                "purr CLI not found.\n" +
+                "Install it from: https://github.com/Fy-nite/purrnet\n" +
+                "Or set a custom CLI path in Settings → Install.");
 
         return await RunProcessAsync(purrExe, $"install {packageName}", progress);
 
@@ -165,10 +178,15 @@ public class PackageInstallService
         return (process.ExitCode == 0, output.ToString());
     }
 
-    private static string? FindPurrExecutable()
+    private string? FindPurrExecutable()
     {
-        var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        // 1. Honour explicit override from settings.
+        var custom = _settings.CustomCliPath;
+        if (!string.IsNullOrWhiteSpace(custom) && File.Exists(custom))
+            return custom;
 
+        // 2. Walk PATH.
+        var pathEnv = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
         foreach (var dir in pathEnv.Split(Path.PathSeparator))
         {
 #if WINDOWS

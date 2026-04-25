@@ -8,8 +8,16 @@ namespace PurrLauncher
         {
             InitializeComponent();
 
-            // Register detail page route for Shell navigation
-            Routing.RegisterRoute(nameof(PackageDetailPage), typeof(PackageDetailPage));
+            // Guard against duplicate registration when the shell is recreated
+            // after a theme switch.
+            try
+            {
+                Routing.RegisterRoute(nameof(PackageDetailPage), typeof(PackageDetailPage));
+            }
+            catch (ArgumentException)
+            {
+                // Already registered — safe to ignore.
+            }
         }
     }
 }

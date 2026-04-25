@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
 using Purrnet.Data;
 using Purrnet.Models;
 
@@ -6,10 +6,10 @@ namespace Purrnet.Services
 {
     public class AdminService : IAdminService
     {
-        private readonly PurrDbContext _context;
+        private readonly MongoDbContext _context;
         private readonly ILogger<AdminService> _logger;
 
-        public AdminService(PurrDbContext context, ILogger<AdminService> logger)
+        public AdminService(MongoDbContext context, ILogger<AdminService> logger)
         {
             _context = context;
             _logger = logger;
@@ -20,8 +20,8 @@ namespace Purrnet.Services
             try
             {
                 return await _context.Packages
-                    .Where(p => p.ApprovalStatus == "Pending")
-                    .OrderBy(p => p.CreatedAt)
+                    .Find(p => p.ApprovalStatus == "Pending")
+                    .SortBy(p => p.CreatedAt)
                     .ToListAsync();
             }
             catch (Exception ex)
@@ -35,33 +35,30 @@ namespace Purrnet.Services
         {
             try
             {
-                var query = _context.Packages.AsQueryable();
+                var filter = status == "all"
+                    ? FilterDefinition<Package>.Empty
+                    : Builders<Package>.Filter.Regex(
+                        p => p.ApprovalStatus,
+                        new MongoDB.Bson.BsonRegularExpression($"^{status}$", "i"));
 
-                // Apply status filter
-                if (status != "all")
-                {
-                    query = query.Where(p => p.ApprovalStatus.ToLower() == status.ToLower());
-                }
+                var packages = await _context.Packages.Find(filter).ToListAsync();
 
-                // Apply search filter
                 if (!string.IsNullOrEmpty(search))
                 {
-                    query = query.Where(p => 
-                        p.Name.Contains(search) || 
-                        p.Description.Contains(search) ||
-                        p.Authors.Any(a => a.Contains(search)));
+                    packages = packages.Where(p =>
+                        p.Name.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                        p.Description.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                        (p.Authors?.Any(a => a.Contains(search, StringComparison.OrdinalIgnoreCase)) ?? false))
+                        .ToList();
                 }
 
-                // Apply sorting
-                query = sortBy switch
+                return sortBy switch
                 {
-                    "oldest" => query.OrderBy(p => p.CreatedAt),
-                    "name" => query.OrderBy(p => p.Name),
-                    "downloads" => query.OrderByDescending(p => p.Downloads),
-                    _ => query.OrderByDescending(p => p.CreatedAt) // newest (default)
+                    "oldest" => packages.OrderBy(p => p.CreatedAt).ToList(),
+                    "name" => packages.OrderBy(p => p.Name).ToList(),
+                    "downloads" => packages.OrderByDescending(p => p.Downloads).ToList(),
+                    _ => packages.OrderByDescending(p => p.CreatedAt).ToList()
                 };
-
-                return await query.ToListAsync();
             }
             catch (Exception ex)
             {
@@ -75,10 +72,13 @@ namespace Purrnet.Services
             try
             {
                 if (status == "all")
-                    return await _context.Packages.CountAsync();
+                    return (int)await _context.Packages.CountDocumentsAsync(FilterDefinition<Package>.Empty);
 
-                return await _context.Packages
-                    .CountAsync(p => p.ApprovalStatus.ToLower() == status.ToLower());
+                var filter = Builders<Package>.Filter.Regex(
+                    p => p.ApprovalStatus,
+                    new MongoDB.Bson.BsonRegularExpression($"^{status}$", "i"));
+
+                return (int)await _context.Packages.CountDocumentsAsync(filter);
             }
             catch (Exception ex)
             {
@@ -87,23 +87,22 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<bool> ApprovePackageAsync(int packageId, string adminUserId)
+        public async Task<bool> ApprovePackageAsync(string packageId, string adminUserId)
         {
             try
             {
-                var package = await _context.Packages.FindAsync(packageId);
+                var package = await _context.Packages.Find(p => p.Id == packageId).FirstOrDefaultAsync();
                 if (package == null) return false;
 
-                package.ApprovalStatus = "Approved";
-                package.IsActive = true;
-                package.UpdatedBy = adminUserId;
-                package.LastUpdated = DateTime.UtcNow;
+                var update = Builders<Package>.Update
+                    .Set(p => p.ApprovalStatus, "Approved")
+                    .Set(p => p.IsActive, true)
+                    .Set(p => p.UpdatedBy, adminUserId)
+                    .Set(p => p.LastUpdated, DateTime.UtcNow);
 
-                await _context.SaveChangesAsync();
-                
+                await _context.Packages.UpdateOneAsync(p => p.Id == packageId, update);
                 await LogActivityAsync("approve", $"Approved package '{package.Name}'", adminUserId);
-                _logger.LogInformation("Package {PackageId} approved by admin {AdminId}", packageId, adminUserId);
-                
+                _logger.LogInformation("Package {PackageId} approved by {AdminId}", packageId, adminUserId);
                 return true;
             }
             catch (Exception ex)
@@ -113,27 +112,25 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<bool> RejectPackageAsync(int packageId, string adminUserId, string? reason = null)
+        public async Task<bool> RejectPackageAsync(string packageId, string adminUserId, string? reason = null)
         {
             try
             {
-                var package = await _context.Packages.FindAsync(packageId);
+                var package = await _context.Packages.Find(p => p.Id == packageId).FirstOrDefaultAsync();
                 if (package == null) return false;
 
-                package.ApprovalStatus = "Rejected";
-                package.IsActive = false;
-                package.UpdatedBy = adminUserId;
-                package.LastUpdated = DateTime.UtcNow;
-                package.RejectionReason = reason;
+                var update = Builders<Package>.Update
+                    .Set(p => p.ApprovalStatus, "Rejected")
+                    .Set(p => p.IsActive, false)
+                    .Set(p => p.UpdatedBy, adminUserId)
+                    .Set(p => p.LastUpdated, DateTime.UtcNow)
+                    .Set(p => p.RejectionReason, reason);
 
-                await _context.SaveChangesAsync();
-                
-                var description = $"Rejected package '{package.Name}'" + 
-                    (string.IsNullOrEmpty(reason) ? "" : $": {reason}");
-                await LogActivityAsync("reject", description, adminUserId);
-                
-                _logger.LogInformation("Package {PackageId} rejected by admin {AdminId}", packageId, adminUserId);
-                
+                await _context.Packages.UpdateOneAsync(p => p.Id == packageId, update);
+
+                var desc = $"Rejected package '{package.Name}'" + (string.IsNullOrEmpty(reason) ? "" : $": {reason}");
+                await LogActivityAsync("reject", desc, adminUserId);
+                _logger.LogInformation("Package {PackageId} rejected by {AdminId}", packageId, adminUserId);
                 return true;
             }
             catch (Exception ex)
@@ -143,23 +140,23 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<bool> TogglePackageStatusAsync(int packageId, string adminUserId)
+        public async Task<bool> TogglePackageStatusAsync(string packageId, string adminUserId)
         {
             try
             {
-                var package = await _context.Packages.FindAsync(packageId);
+                var package = await _context.Packages.Find(p => p.Id == packageId).FirstOrDefaultAsync();
                 if (package == null) return false;
 
-                package.IsActive = !package.IsActive;
-                package.UpdatedBy = adminUserId;
-                package.LastUpdated = DateTime.UtcNow;
+                var newActive = !package.IsActive;
+                var update = Builders<Package>.Update
+                    .Set(p => p.IsActive, newActive)
+                    .Set(p => p.UpdatedBy, adminUserId)
+                    .Set(p => p.LastUpdated, DateTime.UtcNow);
 
-                await _context.SaveChangesAsync();
-                
-                var action = package.IsActive ? "enable" : "disable";
-                var capitalizedAction = char.ToUpper(action[0]) + action.Substring(1);
-                await LogActivityAsync(action, $"{capitalizedAction}d package '{package.Name}'", adminUserId);
-                
+                await _context.Packages.UpdateOneAsync(p => p.Id == packageId, update);
+
+                var action = newActive ? "enable" : "disable";
+                await LogActivityAsync(action, $"{char.ToUpper(action[0]) + action[1..]}d package '{package.Name}'", adminUserId);
                 return true;
             }
             catch (Exception ex)
@@ -173,22 +170,23 @@ namespace Purrnet.Services
         {
             try
             {
-                return await _context.AdminActivities
-                    .OrderByDescending(a => a.Timestamp)
-                    .Take(10)
-                    .Select(a => new AdminActivity
-                    {
-                        Id = a.Id,
-                        Action = a.Action,
-                        Description = a.Description,
-                        //Message = a.Description, // Use Description as Message
-                        UserId = a.UserId.ToString(),
-                        Username = a.Username,
-                        Timestamp = a.Timestamp,
-                        Icon = GetActivityIcon(a.Action),
-                        Color = GetActivityColor(a.Action)
-                    })
+                var entities = await _context.AdminActivities
+                    .Find(FilterDefinition<AdminActivityEntity>.Empty)
+                    .SortByDescending(a => a.Timestamp)
+                    .Limit(10)
                     .ToListAsync();
+
+                return entities.Select(a => new AdminActivity
+                {
+                    Id = a.Id,
+                    Action = a.Action,
+                    Description = a.Description,
+                    UserId = a.UserId,
+                    Username = a.Username,
+                    Timestamp = a.Timestamp,
+                    Icon = GetActivityIcon(a.Action),
+                    Color = GetActivityColor(a.Action)
+                }).ToList();
             }
             catch (Exception ex)
             {
@@ -201,17 +199,17 @@ namespace Purrnet.Services
         {
             try
             {
+                var user = await _context.Users.Find(u => u.Id == userId).FirstOrDefaultAsync();
                 var activity = new AdminActivityEntity
                 {
                     Action = action,
                     Description = description,
-                    UserId = int.Parse(userId),
-                    Username = "Admin", // You might want to look up the actual username
+                    UserId = userId,
+                    Username = user?.Username ?? "Admin",
                     Timestamp = DateTime.UtcNow
                 };
 
-                _context.AdminActivities.Add(activity);
-                await _context.SaveChangesAsync();
+                await _context.AdminActivities.InsertOneAsync(activity);
             }
             catch (Exception ex)
             {
@@ -219,30 +217,24 @@ namespace Purrnet.Services
             }
         }
 
-        private static string GetActivityIcon(string action)
+        private static string GetActivityIcon(string action) => action.ToLower() switch
         {
-            return action.ToLower() switch
-            {
-                "approve" => "check-circle",
-                "reject" => "x-circle",
-                "enable" => "play-circle",
-                "disable" => "pause-circle",
-                "delete" => "trash",
-                _ => "info-circle"
-            };
-        }
+            "approve" => "check-circle",
+            "reject" => "x-circle",
+            "enable" => "play-circle",
+            "disable" => "pause-circle",
+            "delete" => "trash",
+            _ => "info-circle"
+        };
 
-        private static string GetActivityColor(string action)
+        private static string GetActivityColor(string action) => action.ToLower() switch
         {
-            return action.ToLower() switch
-            {
-                "approve" => "success",
-                "reject" => "danger",
-                "enable" => "success",
-                "disable" => "warning",
-                "delete" => "danger",
-                _ => "primary"
-            };
-        }
+            "approve" => "success",
+            "reject" => "danger",
+            "enable" => "success",
+            "disable" => "warning",
+            "delete" => "danger",
+            _ => "primary"
+        };
     }
 }
