@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using Purrnet.Data;
 using Purrnet.Models;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Purrnet.Services
 {
@@ -10,6 +11,7 @@ namespace Purrnet.Services
     {
         private readonly MongoDbContext _context;
         private readonly ILogger<PackageService> _logger;
+        private readonly static string _sanitizeRegex = @"[^\x20-\x7e]+";
 
         public PackageService(MongoDbContext context, ILogger<PackageService> logger)
         {
@@ -50,7 +52,7 @@ namespace Purrnet.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving package {PackageName}", packageName);
+                _logger.LogError(ex, "Error retrieving package {PackageName}", Regex.Replace(packageName, _sanitizeRegex, ""));
                 return null;
             }
         }
@@ -288,7 +290,7 @@ namespace Purrnet.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error searching packages with query '{Query}'", query);
+                _logger.LogError(ex, "Error searching packages with query '{Query}'", Regex.Replace(query ?? string.Empty, _sanitizeRegex, ""));
                 return new SearchResult { Packages = new List<Package>(), TotalCount = 0, Query = query ?? string.Empty };
             }
         }
@@ -766,7 +768,7 @@ namespace Purrnet.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error adding review for {PackageName}", packageName);
+                _logger.LogError(ex, "Error adding review for {PackageName}", Regex.Replace(packageName, _sanitizeRegex, ""));
                 return (false, "An error occurred while saving the review.");
             }
         }
