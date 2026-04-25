@@ -22,7 +22,7 @@ namespace Purrnet.Controllers.Api
         }
 
         [HttpPost("packages/{packageId}/approve")]
-        public async Task<IActionResult> ApprovePackage(int packageId)
+        public async Task<IActionResult> ApprovePackage(string packageId)
         {
             if (!User.HasClaim("IsAdmin", "True"))
                 return Forbid();
@@ -34,7 +34,7 @@ namespace Purrnet.Controllers.Api
         }
 
         [HttpPost("packages/{packageId}/reject")]
-        public async Task<IActionResult> RejectPackage(int packageId, [FromBody] RejectRequest request)
+        public async Task<IActionResult> RejectPackage(string packageId, [FromBody] RejectRequest request)
         {
             if (!User.HasClaim("IsAdmin", "True"))
                 return Forbid();
@@ -46,7 +46,7 @@ namespace Purrnet.Controllers.Api
         }
 
         [HttpPost("packages/{packageId}/toggle")]
-        public async Task<IActionResult> TogglePackageStatus(int packageId)
+        public async Task<IActionResult> TogglePackageStatus(string packageId)
         {
             if (!User.HasClaim("IsAdmin", "True"))
                 return Forbid();
@@ -58,7 +58,7 @@ namespace Purrnet.Controllers.Api
         }
 
         [HttpDelete("packages/{packageId}")]
-        public async Task<IActionResult> DeletePackage(int packageId)
+        public async Task<IActionResult> DeletePackage(string packageId)
         {
             if (!User.HasClaim("IsAdmin", "True"))
                 return Forbid();
@@ -68,7 +68,7 @@ namespace Purrnet.Controllers.Api
         }
 
         [HttpPut("packages/{packageId}")]
-        public async Task<IActionResult> EditPackage(int packageId, [FromBody] Purrnet.Models.PurrConfig config)
+        public async Task<IActionResult> EditPackage(string packageId, [FromBody] Purrnet.Models.PurrConfig config)
         {
             if (!User.HasClaim("IsAdmin", "True"))
                 return Forbid();

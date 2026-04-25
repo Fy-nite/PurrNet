@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="PurrLauncher.Resources.Themes.CrimsonTheme">
+
+    <!-- ── Crimson: warm reds ─────────────────────────────────────── -->
+    <Color x:Key="Purrple">#DC2626</Color>
+    <Color x:Key="PurrpleDark">#991B1B</Color>
+    <Color x:Key="PurrpleLight">#FEE2E2</Color>
+    <Color x:Key="PurrpleLightDark">#450A0A</Color>
+
+    <Color x:Key="Primary">#DC2626</Color>
+    <Color x:Key="PrimaryDark">#F87171</Color>
+    <Color x:Key="PrimaryDarkText">#450a0a</Color>
+    <Color x:Key="Secondary">#FEE2E2</Color>
+    <Color x:Key="SecondaryDarkText">#DC2626</Color>
+    <Color x:Key="Tertiary">#991B1B</Color>
+
+    <Color x:Key="Magenta">#F97316</Color>
+    <Color x:Key="MidnightBlue">#1a0a0a</Color>
+    <Color x:Key="OffBlack">#140606</Color>
+
+</ResourceDictionary>

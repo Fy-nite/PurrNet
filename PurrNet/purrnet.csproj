@@ -9,9 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="Markdig" Version="0.41.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.0" />
+    <PackageReference Include="MongoDB.Driver" Version="2.28.0" />
     <PackageReference Include="DotNetEnv" Version="3.0.0" />
   </ItemGroup>
 

@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
 using Purrnet.Data;
 using Purrnet.Models;
 
@@ -6,10 +6,10 @@ namespace Purrnet.Services
 {
     public class UserService : IUserService
     {
-        private readonly PurrDbContext _context;
+        private readonly MongoDbContext _context;
         private readonly ILogger<UserService> _logger;
 
-        public UserService(PurrDbContext context, ILogger<UserService> logger)
+        public UserService(MongoDbContext context, ILogger<UserService> logger)
         {
             _context = context;
             _logger = logger;
@@ -19,7 +19,7 @@ namespace Purrnet.Services
         {
             try
             {
-                return await _context.Users.FirstOrDefaultAsync(u => u.GitHubId == gitHubId);
+                return await _context.Users.Find(u => u.GitHubId == gitHubId).FirstOrDefaultAsync();
             }
             catch (Exception ex)
             {
@@ -43,15 +43,13 @@ namespace Purrnet.Services
                     IsAdmin = false
                 };
 
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Created new user {Username} with GitHub ID {GitHubId}", username, gitHubId);
+                await _context.Users.InsertOneAsync(user);
+                _logger.LogInformation("Created new user {Username} (GitHub ID: {GitHubId})", username, gitHubId);
                 return user;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating user {Username} with GitHub ID {GitHubId}", username, gitHubId);
+                _logger.LogError(ex, "Error creating user {Username}", username);
                 throw;
             }
         }
@@ -61,8 +59,7 @@ namespace Purrnet.Services
             try
             {
                 user.LastLoginAt = DateTime.UtcNow;
-                _context.Users.Update(user);
-                await _context.SaveChangesAsync();
+                await _context.Users.ReplaceOneAsync(u => u.Id == user.Id, user);
                 return user;
             }
             catch (Exception ex)
@@ -72,11 +69,11 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<bool> IsAdminAsync(int userId)
+        public async Task<bool> IsAdminAsync(string userId)
         {
             try
             {
-                var user = await _context.Users.FindAsync(userId);
+                var user = await _context.Users.Find(u => u.Id == userId).FirstOrDefaultAsync();
                 return user?.IsAdmin ?? false;
             }
             catch (Exception ex)
@@ -90,7 +87,10 @@ namespace Purrnet.Services
         {
             try
             {
-                return await _context.Users.OrderBy(u => u.Username).ToListAsync();
+                return await _context.Users
+                    .Find(FilterDefinition<User>.Empty)
+                    .SortBy(u => u.Username)
+                    .ToListAsync();
             }
             catch (Exception ex)
             {
@@ -99,19 +99,15 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<bool> PromoteToAdminAsync(int userId)
+        public async Task<bool> PromoteToAdminAsync(string userId)
         {
             try
             {
-                var user = await _context.Users.FindAsync(userId);
-                if (user != null)
-                {
-                    user.IsAdmin = true;
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("User {Username} promoted to admin", user.Username);
-                    return true;
-                }
-                return false;
+                var update = Builders<User>.Update.Set(u => u.IsAdmin, true);
+                var result = await _context.Users.UpdateOneAsync(u => u.Id == userId, update);
+                if (result.ModifiedCount > 0)
+                    _logger.LogInformation("User {UserId} promoted to admin", userId);
+                return result.ModifiedCount > 0;
             }
             catch (Exception ex)
             {
@@ -120,40 +116,30 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<bool> RevokeAdminAsync(int userId)
+        public async Task<bool> RevokeAdminAsync(string userId)
         {
             try
             {
-                var user = await _context.Users.FindAsync(userId);
-                if (user != null)
-                {
-                    user.IsAdmin = false;
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("Admin privileges revoked for user {Username}", user.Username);
-                    return true;
-                }
-                return false;
+                var update = Builders<User>.Update.Set(u => u.IsAdmin, false);
+                var result = await _context.Users.UpdateOneAsync(u => u.Id == userId, update);
+                return result.ModifiedCount > 0;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error revoking admin privileges for user {UserId}", userId);
+                _logger.LogError(ex, "Error revoking admin for user {UserId}", userId);
                 return false;
             }
         }
 
-        public async Task<bool> BanUserAsync(int userId)
+        public async Task<bool> BanUserAsync(string userId)
         {
             try
             {
-                var user = await _context.Users.FindAsync(userId);
-                if (user != null)
-                {
-                    user.IsBanned = true;
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("User {Username} (ID {UserId}) banned", user.Username, userId);
-                    return true;
-                }
-                return false;
+                var update = Builders<User>.Update.Set(u => u.IsBanned, true);
+                var result = await _context.Users.UpdateOneAsync(u => u.Id == userId, update);
+                if (result.ModifiedCount > 0)
+                    _logger.LogInformation("User {UserId} banned", userId);
+                return result.ModifiedCount > 0;
             }
             catch (Exception ex)
             {
@@ -162,19 +148,15 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<bool> UnbanUserAsync(int userId)
+        public async Task<bool> UnbanUserAsync(string userId)
         {
             try
             {
-                var user = await _context.Users.FindAsync(userId);
-                if (user != null)
-                {
-                    user.IsBanned = false;
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation("User {Username} (ID {UserId}) unbanned", user.Username, userId);
-                    return true;
-                }
-                return false;
+                var update = Builders<User>.Update.Set(u => u.IsBanned, false);
+                var result = await _context.Users.UpdateOneAsync(u => u.Id == userId, update);
+                if (result.ModifiedCount > 0)
+                    _logger.LogInformation("User {UserId} unbanned", userId);
+                return result.ModifiedCount > 0;
             }
             catch (Exception ex)
             {
@@ -187,7 +169,7 @@ namespace Purrnet.Services
         {
             try
             {
-                return await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+                return await _context.Users.Find(u => u.Username == username).FirstOrDefaultAsync();
             }
             catch (Exception ex)
             {
@@ -196,13 +178,13 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<List<Package>> GetUserPackagesAsync(int userId)
+        public async Task<List<Package>> GetUserPackagesAsync(string userId)
         {
             try
             {
                 return await _context.Packages
-                    .Where(p => p.OwnerId == userId && p.IsActive)
-                    .OrderByDescending(p => p.CreatedAt)
+                    .Find(p => p.OwnerId == userId && p.IsActive)
+                    .SortByDescending(p => p.CreatedAt)
                     .ToListAsync();
             }
             catch (Exception ex)
@@ -212,15 +194,17 @@ namespace Purrnet.Services
             }
         }
 
-        public async Task<List<Package>> GetUserMaintainedPackagesAsync(int userId)
+        public async Task<List<Package>> GetUserMaintainedPackagesAsync(string userId)
         {
             try
             {
-                // For now, return packages where user is listed as maintainer
-                // This could be expanded with a proper many-to-many relationship
+                var filter = Builders<Package>.Filter.And(
+                    Builders<Package>.Filter.Eq(p => p.IsActive, true),
+                    Builders<Package>.Filter.AnyEq("MaintainerIds", userId));
+
                 return await _context.Packages
-                    .Where(p => p.IsActive && p.Maintainers.Any(m => m.Id == userId))
-                    .OrderByDescending(p => p.LastUpdated)
+                    .Find(filter)
+                    .SortByDescending(p => p.LastUpdated)
                     .ToListAsync();
             }
             catch (Exception ex)
@@ -230,20 +214,17 @@ namespace Purrnet.Services
             }
         }
 
-
         public async Task<bool> MakeFirstUserAdminAsync()
         {
             try
             {
-                var userCount = await _context.Users.CountAsync();
-                if (userCount == 1)
-                {
-                    var firstUser = await _context.Users.FirstAsync();
-                    firstUser.IsAdmin = true;
-                    await _context.SaveChangesAsync();
-                    return true;
-                }
-                return false;
+                var count = await _context.Users.CountDocumentsAsync(FilterDefinition<User>.Empty);
+                if (count != 1) return false;
+
+                var first = await _context.Users.Find(FilterDefinition<User>.Empty).FirstAsync();
+                var update = Builders<User>.Update.Set(u => u.IsAdmin, true);
+                await _context.Users.UpdateOneAsync(u => u.Id == first.Id, update);
+                return true;
             }
             catch (Exception ex)
             {

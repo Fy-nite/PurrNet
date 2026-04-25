@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
 using Purrnet.Data;
 using Purrnet.Services;
 using Microsoft.AspNetCore.Authentication.OAuth;
@@ -54,9 +54,14 @@ builder.Services.AddCors(options =>
 // Add API documentation
 builder.Services.AddEndpointsApiExplorer();
 
-// Add Entity Framework
-builder.Services.AddDbContext<PurrDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+// Add MongoDB
+var mongoSettings = builder.Configuration.GetSection("MongoDB").Get<MongoDbSettings>() ?? new MongoDbSettings();
+mongoSettings.ConnectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING") ?? mongoSettings.ConnectionString;
+mongoSettings.DatabaseName = Environment.GetEnvironmentVariable("MONGODB_DATABASE") ?? mongoSettings.DatabaseName;
+
+builder.Services.AddSingleton(mongoSettings);
+builder.Services.AddSingleton<IMongoClient>(_ => new MongoClient(mongoSettings.ConnectionString));
+builder.Services.AddSingleton<MongoDbContext>();
 
 // Add memory cache
 builder.Services.AddMemoryCache();
@@ -246,28 +251,19 @@ if (trustForwardHeaders)
         await next();
     });
 }
-// Apply migrations automatically on startup
+// Seed default categories on startup
 using (var scope = app.Services.CreateScope())
 {
     var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-    var context = scope.ServiceProvider.GetRequiredService<PurrDbContext>();
+    var mongoCtx = scope.ServiceProvider.GetRequiredService<MongoDbContext>();
     try
     {
-        context.Database.Migrate();
-        startupLogger.LogInformation("Database migrations applied successfully");
+        await mongoCtx.SeedDefaultCategoriesAsync();
+        startupLogger.LogInformation("MongoDB ready");
     }
     catch (Exception ex)
     {
-        startupLogger.LogError(ex, "Migration failed; attempting EnsureCreated as fallback");
-        try
-        {
-            context.Database.EnsureCreated();
-            startupLogger.LogInformation("Database schema created via EnsureCreated fallback");
-        }
-        catch (Exception innerEx)
-        {
-            startupLogger.LogCritical(innerEx, "Database initialization failed entirely — the app may not function correctly");
-        }
+        startupLogger.LogError(ex, "MongoDB startup seeding failed");
     }
 }
 

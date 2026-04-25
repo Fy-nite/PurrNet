@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="PurrLauncher.Resources.Themes.ForestTheme">
+
+    <!-- ── Forest: lush greens ────────────────────────────────────── -->
+    <Color x:Key="Purrple">#16A34A</Color>
+    <Color x:Key="PurrpleDark">#15803D</Color>
+    <Color x:Key="PurrpleLight">#DCFCE7</Color>
+    <Color x:Key="PurrpleLightDark">#14532D</Color>
+
+    <Color x:Key="Primary">#16A34A</Color>
+    <Color x:Key="PrimaryDark">#4ADE80</Color>
+    <Color x:Key="PrimaryDarkText">#052e16</Color>
+    <Color x:Key="Secondary">#DCFCE7</Color>
+    <Color x:Key="SecondaryDarkText">#16A34A</Color>
+    <Color x:Key="Tertiary">#15803D</Color>
+
+    <Color x:Key="Magenta">#84CC16</Color>
+    <Color x:Key="MidnightBlue">#052e16</Color>
+    <Color x:Key="OffBlack">#071a0d</Color>
+
+</ResourceDictionary>

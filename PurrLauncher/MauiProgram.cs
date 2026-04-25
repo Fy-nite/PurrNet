@@ -19,17 +19,22 @@ namespace PurrLauncher
                 });
 
             // ── Services ──────────────────────────────────────────────────────
+            builder.Services.AddSingleton<SettingsService>();
             builder.Services.AddSingleton<PurrApiService>();
             builder.Services.AddSingleton<PackageInstallService>();
+            builder.Services.AddSingleton<ThemeService>();
 
             // ── ViewModels ────────────────────────────────────────────────────
             builder.Services.AddSingleton<BrowseViewModel>();
             builder.Services.AddSingleton<InstalledViewModel>();
+            builder.Services.AddSingleton<SettingsViewModel>();
             builder.Services.AddTransient<PackageDetailViewModel>();
 
             // ── Pages ─────────────────────────────────────────────────────────
-            builder.Services.AddSingleton<BrowsePage>();
-            builder.Services.AddSingleton<InstalledPage>();
+            builder.Services.AddTransient<AppShell>();
+            builder.Services.AddTransient<BrowsePage>();
+            builder.Services.AddTransient<InstalledPage>();
+            builder.Services.AddTransient<SettingsPage>();
             builder.Services.AddTransient<PackageDetailPage>();
 
 #if DEBUG

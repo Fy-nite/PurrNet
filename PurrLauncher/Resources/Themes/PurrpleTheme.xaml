@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="PurrLauncher.Resources.Themes.PurrpleTheme">
+
+    <!-- ── Purrple (default) brand palette ────────────────────────── -->
+    <Color x:Key="Purrple">#7C3AED</Color>
+    <Color x:Key="PurrpleDark">#5B21B6</Color>
+    <Color x:Key="PurrpleLight">#EDE9FE</Color>
+    <Color x:Key="PurrpleLightDark">#3B1F6B</Color>
+
+    <Color x:Key="Primary">#7C3AED</Color>
+    <Color x:Key="PrimaryDark">#a78bfa</Color>
+    <Color x:Key="PrimaryDarkText">#1e1b2e</Color>
+    <Color x:Key="Secondary">#EDE9FE</Color>
+    <Color x:Key="SecondaryDarkText">#7C3AED</Color>
+    <Color x:Key="Tertiary">#5B21B6</Color>
+
+    <Color x:Key="Magenta">#D600AA</Color>
+    <Color x:Key="MidnightBlue">#1e1b2e</Color>
+    <Color x:Key="OffBlack">#1a1a2e</Color>
+
+</ResourceDictionary>

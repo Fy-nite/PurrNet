@@ -21,7 +21,7 @@ namespace Purrnet.Pages.Admin
             _packageService = packageService;
         }
 
-        public async Task<IActionResult> OnGetAsync(int id)
+        public async Task<IActionResult> OnGetAsync(string id)
         {
             if (!User.HasClaim("IsAdmin", "True"))
                 return Forbid();
@@ -34,7 +34,7 @@ namespace Purrnet.Pages.Admin
         }
 
         public async Task<IActionResult> OnPostAsync(
-            int id,
+            string id,
             string Version,
             string? Description,
             string? Authors,

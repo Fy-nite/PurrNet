@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:PurrLauncher.ViewModels"
+             xmlns:models="clr-namespace:PurrLauncher.Models"
+             x:Class="PurrLauncher.Pages.SettingsPage"
+             Title="{Binding Title}">
+
+    <ScrollView>
+        <VerticalStackLayout Spacing="0">
+
+            <!-- ══════════════════ PAGE HEADER ══════════════════════════════ -->
+            <VerticalStackLayout Padding="20,24,20,16" Spacing="4">
+                <Label Text="⚙  Settings"
+                       FontSize="26"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource MidnightBlue}, Dark={StaticResource White}}" />
+                <Label Text="Personalise PurrLauncher"
+                       FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+            </VerticalStackLayout>
+
+            <!-- ══════════════════ APPEARANCE ═══════════════════════════════ -->
+            <BoxView HeightRequest="1" Margin="20,0"
+                     Color="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray600}}" />
+
+            <VerticalStackLayout Padding="20,20,20,8" Spacing="12">
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="🎨" FontSize="16" VerticalOptions="Center" />
+                    <Label Text="Appearance" FontSize="15" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Label Text="Choose an accent colour. Takes effect immediately."
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+
+                <FlexLayout BindableLayout.ItemsSource="{Binding Themes}"
+                            Wrap="Wrap" JustifyContent="Start" AlignItems="Start" Direction="Row">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ThemeOption">
+                            <Border Margin="0,0,10,10" Padding="0" WidthRequest="110"
+                                    StrokeThickness="2" StrokeShape="RoundRectangle 14">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="Stroke" Value="{Binding AccentLight}" />
+                                        <Setter Property="BackgroundColor"
+                                                Value="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray600}}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="False">
+                                        <Setter Property="Stroke"
+                                                Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+                                        <Setter Property="BackgroundColor" Value="Transparent" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SelectThemeCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
+                                <VerticalStackLayout Padding="12,14" Spacing="8">
+                                    <Border HeightRequest="40" StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 8"
+                                            BackgroundColor="{Binding AccentLight}" />
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Grid.Column="0" Text="{Binding Name}" FontSize="13"
+                                               FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource White}}"
+                                               VerticalOptions="Center" />
+                                        <Label Grid.Column="1" Text="✓" FontSize="14" FontAttributes="Bold"
+                                               TextColor="{Binding AccentLight}" VerticalOptions="Center"
+                                               IsVisible="{Binding IsSelected}" />
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
+            </VerticalStackLayout>
+
+            <!-- ══════════════════ REPOSITORIES ═════════════════════════════ -->
+            <BoxView HeightRequest="1" Margin="20,4"
+                     Color="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray600}}" />
+
+            <VerticalStackLayout Padding="20,20,20,12" Spacing="12">
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="📦" FontSize="16" VerticalOptions="Center" />
+                    <Label Text="Repositories" FontSize="15" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Label Text="Add extra package registries. The active repo is tried first; others are used as fallback."
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+
+                <!-- Repo list -->
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Repositories}" Spacing="6">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="models:RepoEntry">
+                            <Border Padding="12,10" StrokeThickness="1" StrokeShape="RoundRectangle 10"
+                                    Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+
+                                    <!-- Active indicator dot -->
+                                    <Border Grid.Column="0" WidthRequest="10" HeightRequest="10"
+                                            StrokeThickness="0" StrokeShape="RoundRectangle 5"
+                                            BackgroundColor="{StaticResource Purrple}"
+                                            VerticalOptions="Center">
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border"
+                                                         Binding="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ActiveRepoIndex}"
+                                                         Value="-1">
+                                                <Setter Property="BackgroundColor" Value="Transparent" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                    </Border>
+
+                                    <!-- Name + URL -->
+                                    <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                        <Label Text="{Binding Name}" FontSize="13" FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource White}}" />
+                                        <Label Text="{Binding Url}" FontSize="11"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                                               LineBreakMode="TailTruncation" />
+                                    </VerticalStackLayout>
+
+                                    <!-- Set active -->
+                                    <Button Grid.Column="2" Text="✓ Use"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.SetActiveRepoCommand}"
+                                            CommandParameter="{Binding .}"
+                                            BackgroundColor="Transparent"
+                                            TextColor="{StaticResource Purrple}"
+                                            BorderColor="{StaticResource Purrple}"
+                                            BorderWidth="1"
+                                            CornerRadius="6"
+                                            Padding="8,4" FontSize="12"
+                                            HeightRequest="32" MinimumHeightRequest="32" />
+
+                                    <!-- Remove -->
+                                    <Button Grid.Column="3" Text="🗑"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.RemoveRepoCommand}"
+                                            CommandParameter="{Binding .}"
+                                            BackgroundColor="Transparent"
+                                            TextColor="#DC2626"
+                                            Padding="6,4" FontSize="14"
+                                            HeightRequest="32" MinimumHeightRequest="32" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <!-- Add new repo -->
+                <Border Padding="14,12" StrokeThickness="1" StrokeShape="RoundRectangle 10"
+                        Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Add repository" FontSize="12" FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+                        <Entry Text="{Binding NewRepoName}"
+                               Placeholder="Name  (e.g. My Mirror)"
+                               FontSize="13" />
+                        <Entry Text="{Binding NewRepoUrl}"
+                               Placeholder="URL  (e.g. https://my-purr-mirror.example.com)"
+                               Keyboard="Url"
+                               FontSize="13" />
+                        <Button Text="＋ Add Repository"
+                                Command="{Binding AddRepoCommand}"
+                                BackgroundColor="{StaticResource Purrple}"
+                                TextColor="White"
+                                CornerRadius="8"
+                                Padding="14,8" FontSize="13" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <!-- ══════════════════ NETWORK ═══════════════════════════════════ -->
+            <BoxView HeightRequest="1" Margin="20,4"
+                     Color="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray600}}" />
+
+            <VerticalStackLayout Padding="20,20,20,12" Spacing="12">
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="🌐" FontSize="16" VerticalOptions="Center" />
+                    <Label Text="Network" FontSize="15" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+
+                <!-- Page size -->
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="4">
+                    <Label Grid.Row="0" Grid.Column="0" Text="Packages per page"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray700}, Dark={StaticResource Gray200}}"
+                           VerticalOptions="Center" />
+                    <Label Grid.Row="0" Grid.Column="1"
+                           Text="{Binding PageSize, StringFormat='{0}'}"
+                           FontSize="13" FontAttributes="Bold"
+                           TextColor="{StaticResource Purrple}"
+                           VerticalOptions="Center" />
+                    <Slider Grid.Row="1" Grid.ColumnSpan="2"
+                            Value="{Binding PageSize}"
+                            Minimum="10" Maximum="200" />
+                </Grid>
+
+                <!-- Timeout -->
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="4">
+                    <Label Grid.Row="0" Grid.Column="0" Text="Request timeout (seconds)"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray700}, Dark={StaticResource Gray200}}"
+                           VerticalOptions="Center" />
+                    <Label Grid.Row="0" Grid.Column="1"
+                           Text="{Binding TimeoutSeconds, StringFormat='{0}s'}"
+                           FontSize="13" FontAttributes="Bold"
+                           TextColor="{StaticResource Purrple}"
+                           VerticalOptions="Center" />
+                    <Slider Grid.Row="1" Grid.ColumnSpan="2"
+                            Value="{Binding TimeoutSeconds}"
+                            Minimum="5" Maximum="120" />
+                </Grid>
+
+                <!-- Cache -->
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="4">
+                    <Label Grid.Row="0" Grid.Column="0" Text="Cache duration (minutes)"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray700}, Dark={StaticResource Gray200}}"
+                           VerticalOptions="Center" />
+                    <Label Grid.Row="0" Grid.Column="1"
+                           Text="{Binding CacheMinutes, StringFormat='{0} min'}"
+                           FontSize="13" FontAttributes="Bold"
+                           TextColor="{StaticResource Purrple}"
+                           VerticalOptions="Center" />
+                    <Slider Grid.Row="1" Grid.ColumnSpan="2"
+                            Value="{Binding CacheMinutes}"
+                            Minimum="0" Maximum="60" />
+                </Grid>
+
+                <Button Text="💾  Save Network Settings"
+                        Command="{Binding SaveNetworkCommand}"
+                        BackgroundColor="{StaticResource Purrple}"
+                        TextColor="White" CornerRadius="8"
+                        Padding="14,8" FontSize="13" />
+            </VerticalStackLayout>
+
+            <!-- ══════════════════ BEHAVIOUR ═════════════════════════════════ -->
+            <BoxView HeightRequest="1" Margin="20,4"
+                     Color="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray600}}" />
+
+            <VerticalStackLayout Padding="20,20,20,12" Spacing="12">
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="⚡" FontSize="16" VerticalOptions="Center" />
+                    <Label Text="Behaviour" FontSize="15" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+
+                <!-- Auto-refresh -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Grid.Column="0" Spacing="2">
+                        <Label Text="Auto-load packages on open"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray700}, Dark={StaticResource Gray200}}" />
+                        <Label Text="Automatically fetch packages when the Browse tab is opened."
+                               FontSize="11"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                    </VerticalStackLayout>
+                    <Switch Grid.Column="1" IsToggled="{Binding AutoRefresh}"
+                            VerticalOptions="Center" />
+                </Grid>
+
+                <!-- Show pre-releases -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Grid.Column="0" Spacing="2">
+                        <Label Text="Show pre-release packages"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray700}, Dark={StaticResource Gray200}}" />
+                        <Label Text="Include alpha, beta and release-candidate versions in results."
+                               FontSize="11"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                    </VerticalStackLayout>
+                    <Switch Grid.Column="1" IsToggled="{Binding ShowPrereleases}"
+                            VerticalOptions="Center" />
+                </Grid>
+
+                <Button Text="💾  Save Behaviour Settings"
+                        Command="{Binding SaveBehaviourCommand}"
+                        BackgroundColor="{StaticResource Purrple}"
+                        TextColor="White" CornerRadius="8"
+                        Padding="14,8" FontSize="13" />
+            </VerticalStackLayout>
+
+            <!-- ══════════════════ INSTALL ═══════════════════════════════════ -->
+            <BoxView HeightRequest="1" Margin="20,4"
+                     Color="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray600}}" />
+
+            <VerticalStackLayout Padding="20,20,20,12" Spacing="12"
+                                 IsVisible="{OnPlatform WinUI=True, Default=False}">
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="🔧" FontSize="16" VerticalOptions="Center" />
+                    <Label Text="Install" FontSize="15" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Label Text="Override where packages are installed and which CLI is used."
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Custom install directory"
+                           FontSize="12" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+                    <Entry Text="{Binding CustomInstallDir}"
+                           Placeholder="Leave blank for default (~/.purr/packages)"
+                           FontSize="13" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Custom CLI path"
+                           FontSize="12" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+                    <Entry Text="{Binding CustomCliPath}"
+                           Placeholder="Leave blank to auto-detect from PATH"
+                           FontSize="13" />
+                </VerticalStackLayout>
+
+                <Button Text="💾  Save Install Settings"
+                        Command="{Binding SaveInstallCommand}"
+                        BackgroundColor="{StaticResource Purrple}"
+                        TextColor="White" CornerRadius="8"
+                        Padding="14,8" FontSize="13" />
+            </VerticalStackLayout>
+
+            <!-- ══════════════════ DANGER ZONE ══════════════════════════════ -->
+            <BoxView HeightRequest="1" Margin="20,4"
+                     Color="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray600}}" />
+
+            <VerticalStackLayout Padding="20,20,20,16" Spacing="10">
+                <HorizontalStackLayout Spacing="8">
+                    <Label Text="⚠️" FontSize="16" VerticalOptions="Center" />
+                    <Label Text="Reset" FontSize="15" FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                           VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Label Text="Restore all settings to their factory defaults. This cannot be undone."
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+                <Button Text="🔄  Reset to Defaults"
+                        Command="{Binding ResetDefaultsCommand}"
+                        BackgroundColor="#DC2626"
+                        TextColor="White" CornerRadius="8"
+                        Padding="14,8" FontSize="13" />
+            </VerticalStackLayout>
+
+            <!-- ══════════════════ ABOUT ═════════════════════════════════════ -->
+            <BoxView HeightRequest="1" Margin="20,4"
+                     Color="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray600}}" />
+
+            <VerticalStackLayout Padding="20,16,20,32" Spacing="4">
+                <Label Text="ℹ  About" FontSize="15" FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}" />
+                <Label Text="PurrLauncher — the friendly package manager for purr 🐾"
+                       FontSize="12"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
+

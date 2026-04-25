@@ -7,7 +7,8 @@ namespace PurrLauncher.ViewModels;
 
 public class BrowseViewModel : BaseViewModel
 {
-    private readonly PurrApiService _apiService;
+    private readonly PurrApiService  _apiService;
+    private readonly SettingsService _settings;
 
     // Shared set – also used by PackageDetailViewModel on Android.
     public static readonly HashSet<string> AndroidCategories = new(StringComparer.OrdinalIgnoreCase)
@@ -67,9 +68,10 @@ public class BrowseViewModel : BaseViewModel
     // Raised by the page to navigate when an item is tapped
     public event Action<PackageInfo>? PackageSelected;
 
-    public BrowseViewModel(PurrApiService apiService)
+    public BrowseViewModel(PurrApiService apiService, SettingsService settings)
     {
         _apiService = apiService;
+        _settings   = settings;
 
 #if ANDROID
         Title = "Browse";

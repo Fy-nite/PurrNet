@@ -7,16 +7,16 @@ namespace Purrnet.Services
         Task<List<Package>> GetPendingPackagesAsync();
         Task<List<Package>> GetPackagesByStatusAsync(string status, string? search = null, string? sortBy = null);
         Task<int> GetPackageCountByStatusAsync(string status);
-        Task<bool> ApprovePackageAsync(int packageId, string adminUserId);
-        Task<bool> RejectPackageAsync(int packageId, string adminUserId, string? reason = null);
-        Task<bool> TogglePackageStatusAsync(int packageId, string adminUserId);
+        Task<bool> ApprovePackageAsync(string packageId, string adminUserId);
+        Task<bool> RejectPackageAsync(string packageId, string adminUserId, string? reason = null);
+        Task<bool> TogglePackageStatusAsync(string packageId, string adminUserId);
         Task<List<AdminActivity>> GetRecentActivityAsync();
         Task LogActivityAsync(string action, string description, string userId);
     }
 
     public class AdminActivity
     {
-        public int Id { get; set; }
+        public string Id { get; set; } = string.Empty;
         public string Action { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string UserId { get; set; } = string.Empty;
