@@ -6,11 +6,11 @@ namespace PurrLauncher.Services;
 
 public class PackageInstallService
 {
-    private readonly SettingsService _settings;
 
-    private static readonly string DefaultPackagesDir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-        ".purr", "packages");
+    private static readonly string PackagesDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "purr", "packages");
+
 
     private string PackagesDir =>
         !string.IsNullOrWhiteSpace(_settings.CustomInstallDir)

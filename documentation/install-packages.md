@@ -13,10 +13,10 @@ This page describes how `purr` installs packages from a PurrNet registry.
 3. Download & install
 
    - Release asset install (no `installer` field):
-     - `purr` queries the repository's GitHub Releases for the package repository, selects the best-matching asset for the OS, downloads it, extracts if necessary, and copies the executable to the CLI binary directory (`~/.purr/bin` on Unix or `%USERPROFILE%\.purr\bin` on Windows).
+     - `purr` queries the repository's GitHub Releases for the package repository, selects the best-matching asset for the OS, downloads it, extracts if necessary, and copies the executable to the CLI binary directory (`$XDG_DATA_HOME/purr/bin` on Unix or `%LOCALAPPDATA%\purr\bin` on Windows).
 
    - Script-based install (has `installer` field):
-     - `purr` clones (or updates) the package repository into `~/.purr/packages/<name>`, checks out the requested version, and runs the installer script (for example `install.sh`). A `furconfig.json` snapshot is written next to the clone.
+     - `purr` clones (or updates) the package repository into `$XDG_DATA_HOME/purr/packages/<name>`, checks out the requested version, and runs the installer script (for example `install.sh`). A `furconfig.json` snapshot is written next to the clone.
 
 4. Track download
 

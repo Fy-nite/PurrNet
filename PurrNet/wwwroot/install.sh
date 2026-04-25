@@ -5,7 +5,7 @@ PURR_API_URL="https://purr.finite.ovh/Latest"
 REPO_OWNER="fy-nite"
 # package / tool id (adjust if your published package uses a different id)
 REPO_NAME="PurrNet"
-TARGET_DIR="$HOME/.purr"
+# TARGET_DIR="$HOME/.purr" # unused????
 
 check_cmd() {
   command -v "$1" >/dev/null 2>&1 || { echo "Required command '$1' not found. Please install it and retry." >&2; exit 1; }

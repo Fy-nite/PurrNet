@@ -14,8 +14,8 @@
 
 <h3>PATH setup for release-asset-installed binaries</h3>
 <ul>
-    <li>Unix (Bash/Zsh): <code>~/.purr/bin</code> — add with: <pre><code>export PATH="$HOME/.purr/bin:$PATH"</code></pre></li>
+    <li>Unix (Bash/Zsh): <code>$XDG_DATA_HOME/purr/bin</code> — add with: <pre><code>export PATH="$PATH:${XDG_DATA_HOME:-~/.local/share}/purr/bin"</code></pre></li>
     <li>Persist in <code>~/.bashrc</code> / <code>~/.zshrc</code> by echoing the export line and sourcing the file.</li>
-    <li>Fish: use <code>set -U fish_user_paths $HOME/.purr/bin $fish_user_paths</code>.</li>
-    <li>PowerShell: add <code>%USERPROFILE%\.purr\bin</code> to <code>PATH</code> for session or persist via <code>setx</code>.</li>
+    <li>Fish: use <code>set -U fish_user_paths ${XDG_DATA_HOME:-~/.local/share}/purr/bin $fish_user_paths</code>.</li>
+    <li>PowerShell: add <code>%LOCALAPPDATA%\purr\bin</code> to <code>PATH</code> for session or persist via <code>setx</code>.</li>
 </ul>

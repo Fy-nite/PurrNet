@@ -15,7 +15,7 @@ if (-not $main) {
     exit 1
 }
 
-$dest = Join-Path $HOME '.purr\bin'
+$dest = $PURR_BIN_DIR
 New-Item -ItemType Directory -Path $dest -Force | Out-Null
 Copy-Item -Path $main.FullName -Destination (Join-Path $dest 'cmake.exe') -Force
 Write-Output "Installed cmake to $dest\cmake.exe"

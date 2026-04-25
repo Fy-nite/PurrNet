@@ -15,7 +15,7 @@ if (-not $main) {
     exit 1
 }
 
-$dest = Join-Path $HOME '.purr\bin'
+$dest = $PURR_BIN_DIR
 New-Item -ItemType Directory -Path $dest -Force | Out-Null
 Copy-Item -Path $main.FullName -Destination (Join-Path $dest 'raylib.dll') -Force
 Write-Output "Installed raylib.dll to $dest"

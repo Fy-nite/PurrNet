@@ -8,12 +8,12 @@ Installer script behavior:
 
 PATH setup for release-asset-installed binaries:
 
-- Unix (Bash/Zsh): `~/.purr/bin` — add with:
+- Unix (Bash/Zsh): `$XDG_DATA_HOME/purr/bin` — add with:
 
 ```bash
-export PATH="$HOME/.purr/bin:$PATH"
+export PATH="${XDG_DATA_HOME:-~/.local/share}/purr/bin:$PATH"
 ```
 
 - Persist in `~/.bashrc` / `~/.zshrc` by echoing the export line and sourcing the file.
-- Fish: use `set -U fish_user_paths $HOME/.purr/bin $fish_user_paths`.
-- PowerShell: add `%USERPROFILE%\.purr\bin` to `PATH` for session or persist via `setx`.
+- Fish: use `set -U fish_user_paths $HOME/.local/share/purr/bin $fish_user_paths`.
+- PowerShell: add `%LOCALAPPDATA%\purr\bin` to `PATH` for session or persist via `setx`.

@@ -16,11 +16,11 @@
 <h3>3. Download &amp; install</h3>
 <p><strong>Release asset install (no <code>installer</code> field)</strong></p>
 <ul>
-    <li><p><code>purr</code> queries the repository's GitHub Releases for the package repository, selects the best-matching asset for the OS, downloads it, extracts if necessary, and copies the executable to the CLI binary directory (<code>~/.purr/bin</code> on Unix or <code>%USERPROFILE%\.purr\bin</code> on Windows).</p></li>
+    <li><p><code>purr</code> queries the repository's GitHub Releases for the package repository, selects the best-matching asset for the OS, downloads it, extracts if necessary, and copies the executable to the CLI binary directory (<code>$XDG_DATA_HOME/purr/bin</code> on Unix or <code>%LOCALAPPDATA%\purr\bin</code> on Windows).</p></li>
 </ul>
 <p><strong>Script-based install (has <code>installer</code> field)</strong></p>
 <ul>
-    <li><p><code>purr</code> clones (or updates) the package repository into <code>~/.purr/packages/&lt;name&gt;</code>, checks out the requested version, and runs the installer script (for example <code>install.sh</code>). A <code>furconfig.json</code> snapshot is written next to the clone.</p></li>
+    <li><p><code>purr</code> clones (or updates) the package repository into <code>$XDG_DATA_HOME/purr/packages/&lt;name&gt;</code>, checks out the requested version, and runs the installer script (for example <code>install.sh</code>). A <code>furconfig.json</code> snapshot is written next to the clone.</p></li>
 </ul>
 
 <h3>4. Track download</h3>

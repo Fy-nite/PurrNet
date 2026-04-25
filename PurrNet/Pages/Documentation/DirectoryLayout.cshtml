@@ -7,11 +7,11 @@
 
 <p>Where <code>purr</code> and script-installed packages keep their files.</p>
 
-<pre><code>~/.purr/
+<pre><code>$XDG_DATA_HOME/purr/
 └── bin/                      # Binaries installed from release assets
     └── &lt;package-name&gt;
 
-~/.purr/
+$XDG_DATA_HOME/purr/
 └── packages/
     └── &lt;package-name&gt;/       # One directory per script-installed package
         ├── .git/             # Full git clone of the package's repository
@@ -21,7 +21,7 @@
 
 <p><strong>Notes</strong></p>
 <ul>
-    <li>Release-asset-installed executables are placed in <code>~/.purr/bin</code> (or <code>%USERPROFILE%\.purr\bin</code> on Windows).</li>
-    <li>Script-based packages are full git clones under <code>~/.purr/packages</code> so installers can run from the repo.</li>
-    <li><code>purr</code> does not automatically remove binaries from <code>~/.purr/bin</code> when uninstalling script-based packages; remove them manually if needed.</li>
+    <li>Release-asset-installed executables are placed in <code>$XDG_DATA_HOME/purr/bin</code> (or <code>%USERPROFILE%\.purr\bin</code> on Windows).</li>
+    <li>Script-based packages are full git clones under <code>$XDG_DATA_HOME/purr/packages</code> so installers can run from the repo.</li>
+    <li><code>purr</code> does not automatically remove binaries from <code>$XDG_DATA_HOME/purr/bin</code> when uninstalling script-based packages; remove them manually if needed.</li>
 </ul>
