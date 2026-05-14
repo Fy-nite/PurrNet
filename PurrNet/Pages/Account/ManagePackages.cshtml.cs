@@ -24,7 +24,7 @@ namespace Purrnet.Pages.Account
             _logger = logger;
         }
 
-        private async Task<string?> GetCurrentUserIdAsync()
+        private async Task<int?> GetCurrentUserIdAsync()
         {
             var gitHubId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(gitHubId)) return null;
@@ -37,7 +37,7 @@ namespace Purrnet.Pages.Account
             var userId = await GetCurrentUserIdAsync();
             if (userId == null) return RedirectToPage("/Account/Login");
 
-            OwnedPackages = await _userService.GetUserPackagesAsync(userId);
+            OwnedPackages = await _userService.GetUserPackagesAsync(userId.ToString()!);
             return Page();
         }
 
@@ -51,7 +51,7 @@ namespace Purrnet.Pages.Account
             {
                 Message = "Package not found or you don't have permission to modify it.";
                 IsSuccess = false;
-                OwnedPackages = await _userService.GetUserPackagesAsync(userId);
+                OwnedPackages = await _userService.GetUserPackagesAsync(userId.ToString()!);
                 return Page();
             }
 
@@ -59,7 +59,7 @@ namespace Purrnet.Pages.Account
             Message = success ? "Package status updated." : "Failed to update package status.";
             IsSuccess = success;
 
-            OwnedPackages = await _userService.GetUserPackagesAsync(userId);
+            OwnedPackages = await _userService.GetUserPackagesAsync(userId.ToString()!);
             return Page();
         }
 
@@ -73,7 +73,7 @@ namespace Purrnet.Pages.Account
             {
                 Message = "Package not found or you don't have permission to delete it.";
                 IsSuccess = false;
-                OwnedPackages = await _userService.GetUserPackagesAsync(userId);
+                OwnedPackages = await _userService.GetUserPackagesAsync(userId.ToString()!);
                 return Page();
             }
 
@@ -81,7 +81,7 @@ namespace Purrnet.Pages.Account
             Message = success ? "Package deleted." : "Failed to delete package.";
             IsSuccess = success;
 
-            OwnedPackages = await _userService.GetUserPackagesAsync(userId);
+            OwnedPackages = await _userService.GetUserPackagesAsync(userId.ToString()!);
             return Page();
         }
     }

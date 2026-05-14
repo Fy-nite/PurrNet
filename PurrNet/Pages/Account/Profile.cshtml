@@ -26,9 +26,9 @@
                         <div class="col-md-9">
                             <h4>@Model.CurrentUser.Username</h4>
                             <p class="text-muted">@Model.CurrentUser.Email</p>
-                            <p><strong>Member since:</strong> @Model.CurrentUser.CreatedAt.ToString("MMMM yyyy")</p>
-                            <p><strong>Last login:</strong> @Model.CurrentUser.LastLoginAt.ToString("MMM dd, yyyy")</p>
-                            @if (Model.CurrentUser.IsAdmin)
+                            <p><strong>Member since:</strong> @Model.CurrentUser.CreatedAtDateTime.ToString("MMMM yyyy")</p>
+                            <p><strong>Last login:</strong> @Model.CurrentUser.LastLoginAtDateTime.ToString("MMM dd, yyyy")</p>
+                            @if (Model.CurrentUser.IsAdmin == 1)
                             {
                                 <span class="badge bg-warning">Administrator</span>
                             }

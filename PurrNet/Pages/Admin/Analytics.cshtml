@@ -113,9 +113,9 @@
                                             <td><span class="badge bg-secondary">@rank</span></td>
                                             <td>
                                                 <a href="/Packages/Details/@pkg.Name" class="text-decoration-none fw-semibold">@pkg.Name</a>
-                                                @if (pkg.Authors.Any())
+                                                @if (pkg.AuthorsList.Any())
                                                 {
-                                                    <br><small class="text-muted">by @string.Join(", ", pkg.Authors)</small>
+                                                    <br><small class="text-muted">by @string.Join(", ", pkg.AuthorsList)</small>
                                                 }
                                             </td>
                                             <td><span class="badge bg-light text-dark">v@pkg.Version</span></td>
@@ -152,13 +152,13 @@
                                         <tr>
                                             <td>
                                                 <a href="/Packages/Details/@pkg.Name" class="text-decoration-none fw-semibold">@pkg.Name</a>
-                                                @if (pkg.Authors.Any())
+                                                @if (pkg.AuthorsList.Any())
                                                 {
-                                                    <br><small class="text-muted">by @string.Join(", ", pkg.Authors)</small>
+                                                    <br><small class="text-muted">by @string.Join(", ", pkg.AuthorsList)</small>
                                                 }
                                             </td>
                                                 <td><span class="badge bg-light text-dark">v@(pkg.Version)</span></td>
-                                            <td><small class="text-muted">@pkg.CreatedAt.ToString("MMM dd, yyyy")</small></td>
+                                            <td><small class="text-muted">@pkg.CreatedAtDateTime.ToString("MMM dd, yyyy")</small></td>
                                         </tr>
                                     }
                                 </tbody>
@@ -221,14 +221,14 @@
                                             </td>
                                                 <td><span class="badge bg-light text-dark">v@(pkg.Version)</span></td>
                                             <td>
-                                                @foreach (var cat in pkg.Categories.Take(3))
+                                                @foreach (var cat in pkg.CategoriesList.Take(3))
                                                 {
                                                     <span class="badge bg-secondary me-1">@cat</span>
                                                 }
                                             </td>
                                             <td class="text-end">@pkg.Downloads.ToString("N0")</td>
                                             <td class="text-end">@pkg.ViewCount.ToString("N0")</td>
-                                            <td><small class="text-muted">@pkg.LastUpdated.ToString("MMM dd, yyyy")</small></td>
+                                            <td><small class="text-muted">@pkg.LastUpdatedDateTime.ToString("MMM dd, yyyy")</small></td>
                                         </tr>
                                     }
                                 </tbody>

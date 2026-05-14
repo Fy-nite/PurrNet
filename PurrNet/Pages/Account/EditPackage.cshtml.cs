@@ -22,7 +22,7 @@ namespace Purrnet.Pages.Account
             _userService = userService;
         }
 
-        private async Task<string?> GetCurrentUserIdAsync()
+        private async Task<int?> GetCurrentUserIdAsync()
         {
             var gitHubId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(gitHubId)) return null;
@@ -30,7 +30,7 @@ namespace Purrnet.Pages.Account
             return user?.Id;
         }
 
-        private bool IsAdmin => User.HasClaim("IsAdmin", "True");
+        private bool IsAdmin => User.HasClaim("IsAdmin", "1");
 
         public async Task<IActionResult> OnGetAsync(string id)
         {

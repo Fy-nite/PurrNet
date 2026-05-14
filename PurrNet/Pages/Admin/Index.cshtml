@@ -127,7 +127,7 @@
                                             </div>
                                         </td>
                                         <td>
-                                            @if (user.IsAdmin)
+                                            @if (user.IsAdmin == 1)
                                             {
                                                 <span class="badge bg-success">Admin</span>
                                             }
@@ -137,7 +137,7 @@
                                             }
                                         </td>
                                         <td>
-                                            @if (user.IsBanned)
+                                            @if (user.IsBanned == 1)
                                             {
                                                 <span class="badge bg-danger">Banned</span>
                                             }
@@ -147,7 +147,7 @@
                                             }
                                         </td>
                                         <td>
-                                            @if (!user.IsAdmin)
+                                            @if (user.IsAdmin == 0)
                                             {
                                                 <form method="post" asp-page-handler="PromoteUser" class="d-inline">
                                                     <input type="hidden" name="userId" value="@user.Id" />
@@ -169,7 +169,7 @@
                                                 </form>
                                             }
 
-                                            @if (!user.IsBanned)
+                                            @if (user.IsBanned == 0)
                                             {
                                                 <form method="post" asp-page-handler="BanUser" class="d-inline ms-1">
                                                     <input type="hidden" name="userId" value="@user.Id" />
@@ -225,7 +225,7 @@
                                             <small class="text-muted">v @package.Version</small>
                                         </td>
                                         <td>
-                                            @if (package.IsActive)
+                                            @if (package.IsActive == 1)
                                             {
                                                 <span class="badge bg-success">Active</span>
                                             }
@@ -236,7 +236,7 @@
                                         </td>
                                         <td>@package.Downloads.ToString("N0")</td>
                                         <td>
-                                            @if (package.IsOutdated)
+                                            @if (package.IsOutdated == 1)
                                             {
                                                 <span class="badge bg-warning">Outdated</span>
                                             }

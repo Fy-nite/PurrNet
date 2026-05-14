@@ -22,7 +22,7 @@ namespace Purrnet.Pages.Admin
 
         public async Task<IActionResult> OnGetAsync()
         {
-            if (!User.HasClaim("IsAdmin", "True"))
+            if (!User.HasClaim("IsAdmin", "1"))
                 return Forbid();
 
             Statistics = await _packageService.GetStatisticsAsync();

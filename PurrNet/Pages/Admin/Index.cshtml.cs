@@ -30,7 +30,7 @@ namespace Purrnet.Pages.Admin
         public async Task<IActionResult> OnGetAsync()
         {
             // Check if user is admin
-            if (!User.HasClaim("IsAdmin", "True"))
+            if (!User.HasClaim("IsAdmin", "1"))
             {
                 return Forbid();
             }
@@ -44,7 +44,7 @@ namespace Purrnet.Pages.Admin
 
         public async Task<IActionResult> OnPostPromoteUserAsync(string userId)
         {
-            if (!User.HasClaim("IsAdmin", "True"))
+            if (!User.HasClaim("IsAdmin", "1"))
             {
                 return Forbid();
             }
@@ -72,7 +72,7 @@ namespace Purrnet.Pages.Admin
 
         public async Task<IActionResult> OnPostRevokeAdminAsync(string userId)
         {
-            if (!User.HasClaim("IsAdmin", "True"))
+            if (!User.HasClaim("IsAdmin", "1"))
             {
                 return Forbid();
             }
@@ -115,7 +115,7 @@ namespace Purrnet.Pages.Admin
 
         public async Task<IActionResult> OnPostBanUserAsync(string userId)
         {
-            if (!User.HasClaim("IsAdmin", "True")) return Forbid();
+            if (!User.HasClaim("IsAdmin", "1")) return Forbid();
 
             var success = await _userService.BanUserAsync(userId);
             Message = success ? "User banned." : "Failed to ban user.";
@@ -130,7 +130,7 @@ namespace Purrnet.Pages.Admin
 
         public async Task<IActionResult> OnPostUnbanUserAsync(string userId)
         {
-            if (!User.HasClaim("IsAdmin", "True")) return Forbid();
+            if (!User.HasClaim("IsAdmin", "1")) return Forbid();
 
             var success = await _userService.UnbanUserAsync(userId);
             Message = success ? "User unbanned." : "Failed to unban user.";
@@ -145,7 +145,7 @@ namespace Purrnet.Pages.Admin
 
         public async Task<IActionResult> OnPostReportOutdatedAsync(string packageId)
         {
-            if (!User.HasClaim("IsAdmin", "True")) return Forbid();
+            if (!User.HasClaim("IsAdmin", "1")) return Forbid();
 
             var success = await _packageService.MarkPackageOutdatedAsync(packageId, true);
             Message = success ? "Package flagged as outdated." : "Failed to flag package.";

@@ -21,7 +21,7 @@ namespace Purrnet.Pages.Admin
         public async Task<IActionResult> OnGetAsync()
         {
             // Check if user is already admin
-            if (User.HasClaim("IsAdmin", "True"))
+            if (User.HasClaim("IsAdmin", "1"))
             {
                 return RedirectToPage("/Admin/Index");
             }

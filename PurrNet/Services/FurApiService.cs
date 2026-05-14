@@ -18,7 +18,6 @@ namespace Purrnet.Services
         private readonly TimeSpan _cacheExpiration = TimeSpan.FromMinutes(5);
 
         public bool IsApiAvailable { get; private set; } = true;
-
         public bool UseLocalStorage => !IsApiAvailable && _useLocalStorageWhenOffline;
 
         public PurrApiService(HttpClient httpClient, ILogger<PurrApiService> logger, IMemoryCache cache, 
@@ -36,7 +35,6 @@ namespace Purrnet.Services
 
         public async Task<PackageListResponse?> GetPackagesAsync(string? sort = null, string? search = null)
         {
-            // Try external API first
             try
             {
                 var queryParams = new List<string>();
@@ -49,35 +47,8 @@ namespace Purrnet.Services
                 if (response.IsSuccessStatusCode)
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    var packageResponse = JsonSerializer.Deserialize<PackageListResponse>(content, new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-                    });
-
-                    if (packageResponse != null)
-                    {
-                        IsApiAvailable = true;
-                        
-                        // Check if package count changed and invalidate cache if necessary
-                        var cacheKey = $"{CACHE_KEY_PACKAGES}_{sort}_{search}";
-                        if (_cache.TryGetValue(CACHE_KEY_PACKAGE_COUNT, out int cachedCount))
-                        {
-                            if (cachedCount != packageResponse.PackageCount)
-                            {
-                                _logger.LogInformation("Package count changed from {OldCount} to {NewCount}, clearing cache", 
-                                    cachedCount, packageResponse.PackageCount);
-                                ClearCache();
-                            }
-                        }
-                        
-                        // Update cached package count
-                        _cache.Set(CACHE_KEY_PACKAGE_COUNT, packageResponse.PackageCount, _cacheExpiration);
-                        _cache.Set(cacheKey, packageResponse, _cacheExpiration);
-                    }
-                    
-                    return packageResponse;
+                    return JsonSerializer.Deserialize<PackageListResponse>(content, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
                 }
-                
                 IsApiAvailable = false;
             }
             catch (Exception ex)
@@ -86,298 +57,74 @@ namespace Purrnet.Services
                 IsApiAvailable = false;
             }
 
-            // Fallback to local storage if configured
-            if (_useLocalStorageWhenOffline)
-            {
-                try
-                {
-                    _logger.LogInformation("Using local package storage");
-                    return await _localPackageService.GetPackageListAsync(sort, search, false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error fetching packages from local storage");
-                }
-            }
-
-            return GetCachedPackageResponse(sort, search);
+            return _useLocalStorageWhenOffline ? await _localPackageService.GetPackageListAsync(sort, search, false) : GetCachedPackageResponse(sort, search);
         }
 
         public async Task<PurrConfig?> GetPackageAsync(string packageName, string? version = null)
         {
-            // Try external API first
             try
             {
-                var url = version != null 
-                    ? $"/api/v1/packages/{Uri.EscapeDataString(packageName)}/{Uri.EscapeDataString(version)}"
-                    : $"/api/v1/packages/{Uri.EscapeDataString(packageName)}";
-                    
+                var url = version != null ? $"/api/v1/packages/{Uri.EscapeDataString(packageName)}/{Uri.EscapeDataString(version)}" : $"/api/v1/packages/{Uri.EscapeDataString(packageName)}";
                 var response = await _httpClient.GetAsync(url);
-                
                 if (response.IsSuccessStatusCode)
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    return JsonSerializer.Deserialize<PurrConfig>(content, new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-                    });
+                    return JsonSerializer.Deserialize<PurrConfig>(await response.Content.ReadAsStringAsync(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching package {PackageName} from API", packageName);
             }
-
-            // Fallback to local storage if configured
-            if (_useLocalStorageWhenOffline)
-            {
-                try
-                {
-                    _logger.LogInformation("Using local storage for package {PackageName}", packageName);
-                    return await _localPackageService.GetPackageAsync(packageName, version);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error fetching package {PackageName} from local storage", packageName);
-                }
-            }
-            
-            return null;
+            return _useLocalStorageWhenOffline ? await _localPackageService.GetPackageAsync(packageName, version) : null;
         }
 
         public async Task<bool> UploadPackageAsync(PurrConfig PurrConfig)
         {
-            // Try external API first
             try
             {
-                var json = JsonSerializer.Serialize(PurrConfig, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-                });
-                var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-                
-                var response = await _httpClient.PostAsync("/api/v1/packages", content);
-                
-                if (response.IsSuccessStatusCode)
-                {
-                    // Clear cache since a new package was added
-                    ClearCache();
-                    _logger.LogInformation("Package {PackageName} uploaded successfully, cache cleared", PurrConfig.Name);
-                    return true;
-                }
-                else
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("Failed to upload package {PackageName}. Status: {StatusCode}, Error: {Error}", 
-                        PurrConfig.Name, response.StatusCode, errorContent);
-                }
+                var json = JsonSerializer.Serialize(PurrConfig, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+                var response = await _httpClient.PostAsync("/api/v1/packages", new StringContent(json, System.Text.Encoding.UTF8, "application/json"));
+                if (response.IsSuccessStatusCode) return true;
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error uploading package {PackageName} to external API", PurrConfig.Name);
-            }
-
-            // Fallback to local storage if configured
-            if (_useLocalStorageWhenOffline)
-            {
-                try
-                {
-                    _logger.LogInformation("Saving package {PackageName} to local storage", PurrConfig.Name);
-                    var success = await _localPackageService.SavePackageAsync(PurrConfig);
-                    if (success)
-                    {
-                        ClearCache();
-                        _logger.LogInformation("Package {PackageName} saved to local storage, cache cleared", PurrConfig.Name);
-                    }
-                    return success;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error saving package {PackageName} to local storage", PurrConfig.Name);
-                }
-            }
-            
-            return false;
+            catch (Exception ex) { _logger.LogError(ex, "Error uploading package {PackageName} to API", PurrConfig.Name); }
+            return _useLocalStorageWhenOffline && await _localPackageService.SavePackageAsync(PurrConfig);
         }
 
         public async Task<bool> IsApiHealthyAsync()
         {
-            try
-            {
-                var response = await _httpClient.GetAsync("/health");
-                IsApiAvailable = response.IsSuccessStatusCode;
-                return IsApiAvailable;
-            }
-            catch
-            {
-                IsApiAvailable = false;
-                return false;
-            }
+            try { return (await _httpClient.GetAsync("/health")).IsSuccessStatusCode; }
+            catch { return false; }
         }
 
         public async Task<List<Package>> GetPackageDetailsAsync(string? sort = null, string? search = null)
         {
-            var cacheKey = $"{CACHE_KEY_PACKAGE_DETAILS}_{sort}_{search}";
-            
-            // Skip cache if API is available to ensure fresh data
-            if (!IsApiAvailable && _cache.TryGetValue(cacheKey, out List<Package>? cachedPackages) && cachedPackages != null)
-            {
-                _logger.LogInformation("Using cached package details (API unavailable)");
-                return cachedPackages;
-            }
-
             try
             {
-                // Use the enhanced API with details=true
-                var queryParams = new List<string>();
-                if (!string.IsNullOrEmpty(sort)) queryParams.Add($"sort={Uri.EscapeDataString(sort)}");
-                if (!string.IsNullOrEmpty(search)) queryParams.Add($"search={Uri.EscapeDataString(search)}");
-                queryParams.Add("details=true");
-                
-                var query = "?" + string.Join("&", queryParams);
+                var query = $"?sort={Uri.EscapeDataString(sort ?? "")}&search={Uri.EscapeDataString(search ?? "")}&details=true";
                 var response = await _httpClient.GetAsync($"/api/v1/packages{query}");
-                
                 if (response.IsSuccessStatusCode)
                 {
-                    var content = await response.Content.ReadAsStringAsync();
-                    var packageResponse = JsonSerializer.Deserialize<PackageListResponse>(content, new JsonSerializerOptions
-                    {
-                        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
-                    });
-
-                    if (packageResponse?.PackageDetails != null)
-                    {
-                        IsApiAvailable = true;
-                        var packages = packageResponse.PackageDetails.Select(PurrConfig => new Package
-                        {
-                            Name = PurrConfig.Name,
-                            Version = PurrConfig.Version,
-                            Authors = PurrConfig.Authors,
-                            SupportedPlatforms = PurrConfig.SupportedPlatforms,
-                            Description = PurrConfig.Description,
-                            ReadmeUrl = PurrConfig.ReadmeUrl,
-                            License = PurrConfig.License,
-                            LicenseUrl = PurrConfig.LicenseUrl,
-                            Keywords = PurrConfig.Keywords,
-                            Homepage = PurrConfig.Homepage,
-                            IssueTracker = PurrConfig.IssueTracker,
-                            Git = PurrConfig.Git,
-                            Installer = PurrConfig.Installer,
-                            InstallCommand = $"Purr install {PurrConfig.Name}",
-                            Dependencies = PurrConfig.Dependencies,
-                            Downloads = Random.Shared.Next(100, 50000),
-                            LastUpdated = DateTime.Now.AddDays(-Random.Shared.Next(1, 365))
-                        }).ToList();
-                        
-                        _cache.Set(cacheKey, packages, _cacheExpiration);
-                        _logger.LogInformation("Loaded {Count} packages with details from enhanced API", packages.Count);
-                        return packages;
-                    }
-                }
-                
-                IsApiAvailable = false;
-                _logger.LogWarning("Enhanced API failed, falling back to legacy method");
-                // Fallback to old method if enhanced API not available
-                return await GetPackageDetailsLegacyAsync(sort, search);
-            }
-            catch (Exception ex)
-            {
-                IsApiAvailable = false;
-                _logger.LogError(ex, "Error fetching package details from enhanced API, falling back to legacy method");
-                return await GetPackageDetailsLegacyAsync(sort, search);
-            }
-        }
-
-        private async Task<List<Package>> GetPackageDetailsLegacyAsync(string? sort = null, string? search = null)
-        {
-            var packages = new List<Package>();
-            var packageResponse = await GetPackagesAsync(sort, search);
-            
-            if (packageResponse?.Packages != null)
-            {
-                foreach (var packageName in packageResponse.Packages)
-                {
-                    var PurrConfig = await GetPackageAsync(packageName);
-                    if (PurrConfig != null)
-                    {
-                        packages.Add(new Package
-                        {
-                            Name = PurrConfig.Name,
-                            Version = PurrConfig.Version,
-                            Authors = PurrConfig.Authors,
-                            SupportedPlatforms = PurrConfig.SupportedPlatforms,
-                            Description = PurrConfig.Description,
-                            ReadmeUrl = PurrConfig.ReadmeUrl,
-                            License = PurrConfig.License,
-                            LicenseUrl = PurrConfig.LicenseUrl,
-                            Keywords = PurrConfig.Keywords,
-                            Homepage = PurrConfig.Homepage,
-                            IssueTracker = PurrConfig.IssueTracker,
-                            Git = PurrConfig.Git,
-                            Installer = PurrConfig.Installer,
-                            InstallCommand = $"Purr install {PurrConfig.Name}",
-                            Dependencies = PurrConfig.Dependencies,
-                            Downloads = Random.Shared.Next(100, 50000),
-                            LastUpdated = DateTime.Now.AddDays(-Random.Shared.Next(1, 365))
-                        });
-                    }
+                    var packageResponse = JsonSerializer.Deserialize<PackageListResponse>(await response.Content.ReadAsStringAsync(), new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower });
+                    return packageResponse?.PackageDetails?.Select(p => new Package {
+                        Name = p.Name,
+                        Version = p.Version,
+                        Authors = JsonSerializer.Serialize(p.Authors),
+                        SupportedPlatforms = JsonSerializer.Serialize(p.SupportedPlatforms),
+                        Description = p.Description,
+                        ReadmeUrl = p.ReadmeUrl,
+                        License = p.License,
+                        LicenseUrl = p.LicenseUrl,
+                        Keywords = JsonSerializer.Serialize(p.Keywords),
+                        Dependencies = JsonSerializer.Serialize(p.Dependencies),
+                        LastUpdated = DateTime.UtcNow.ToString("O")
+                    }).ToList() ?? new List<Package>();
                 }
             }
-            
-            return packages;
+            catch (Exception ex) { _logger.LogError(ex, "API Error"); }
+            return new List<Package>();
         }
 
-        public void ClearCache()
-        {
-            // Clear all cache entries
-            if (_cache is MemoryCache memoryCache)
-            {
-                var field = typeof(MemoryCache).GetField("_coherentState", 
-                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                
-                if (field?.GetValue(memoryCache) is object coherentState)
-                {
-                    var entriesField = coherentState.GetType().GetProperty("EntriesCollection",
-                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    
-                    if (entriesField?.GetValue(coherentState) is System.Collections.IDictionary entries)
-                    {
-                        var keysToRemove = new List<object>();
-                        foreach (System.Collections.DictionaryEntry entry in entries)
-                        {
-                            var key = entry.Key.ToString();
-                            if (key?.Contains("cached_packages") == true || 
-                                key?.Contains("cached_package") == true)
-                            {
-                                keysToRemove.Add(entry.Key);
-                            }
-                        }
-                        
-                        foreach (var key in keysToRemove)
-                        {
-                            _cache.Remove(key);
-                        }
-                    }
-                }
-            }
-
-            _logger.LogInformation("All package cache entries cleared");
-        }
-
-        private PackageListResponse? GetCachedPackageResponse(string? sort, string? search)
-        {
-            var cacheKey = $"{CACHE_KEY_PACKAGES}_{sort}_{search}";
-            if (_cache.TryGetValue(cacheKey, out PackageListResponse? cached))
-            {
-                return cached;
-            }
-            
-            // Return fallback data if no cache available
-            return new PackageListResponse
-            {
-                PackageCount = 0,
-                Packages = new List<string>()
-            };
-        }
+        public void ClearCache() { }
+        private PackageListResponse? GetCachedPackageResponse(string? sort, string? search) => null;
     }
 }

@@ -9,7 +9,7 @@ public class ApiService : IDisposable
     private readonly HttpClient _httpClient;
     private readonly string[] _baseUrls;
     // Changed to HTTP for local development - update this when deploying
-    public const string BaseUrl = "http://purr.finite.ovh"; 
+    public const string BaseUrl = "https://purr.finite.ovh"; 
 
     public ApiService(string[] baseUrls)
     {

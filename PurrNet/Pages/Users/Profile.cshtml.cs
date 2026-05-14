@@ -39,8 +39,8 @@ namespace Purrnet.Pages.Users
                     return NotFound();
                 }
 
-                OwnedPackages = await _userService.GetUserPackagesAsync(ProfileUser.Id);
-                MaintainedPackages = await _userService.GetUserMaintainedPackagesAsync(ProfileUser.Id);
+                OwnedPackages = await _userService.GetUserPackagesAsync(ProfileUser.Id.ToString());
+                MaintainedPackages = await _userService.GetUserMaintainedPackagesAsync(ProfileUser.Id.ToString());
                 
                 // Check if this is the current user's profile
                 if (User.Identity?.IsAuthenticated == true)
@@ -48,7 +48,7 @@ namespace Purrnet.Pages.Users
                     var currentUserIdClaim = User.FindFirst("UserId");
                     if (currentUserIdClaim != null)
                     {
-                        IsOwnProfile = currentUserIdClaim.Value == ProfileUser.Id;
+                        IsOwnProfile = currentUserIdClaim.Value == ProfileUser.Id.ToString();
                     }
                 }
 

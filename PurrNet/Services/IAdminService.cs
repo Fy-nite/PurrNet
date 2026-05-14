@@ -13,16 +13,4 @@ namespace Purrnet.Services
         Task<List<AdminActivity>> GetRecentActivityAsync();
         Task LogActivityAsync(string action, string description, string userId);
     }
-
-    public class AdminActivity
-    {
-        public string Id { get; set; } = string.Empty;
-        public string Action { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public string UserId { get; set; } = string.Empty;
-        public string Username { get; set; } = string.Empty;
-        public DateTime Timestamp { get; set; }
-        public string Icon { get; set; } = "info-circle";
-        public string Color { get; set; } = "primary";
-    }
 }

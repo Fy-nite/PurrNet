@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Purrnet.Models;
 using Purrnet.Services;
+using System.Text.Json;
 
 namespace Purrnet.Pages.Admin
 {
@@ -38,7 +39,7 @@ namespace Purrnet.Pages.Admin
 
         public async Task<IActionResult> OnGetAsync()
         {
-            if (!User.HasClaim("IsAdmin", "True"))
+            if (!User.HasClaim("IsAdmin", "1"))
             {
                 return Forbid();
             }
@@ -46,18 +47,18 @@ namespace Purrnet.Pages.Admin
             // Get all packages for counting and filtering
             var allPackages = await _packageService.GetAllPackagesAsync();
             
-            // Calculate counts (for now, treat all packages as approved since we don't have approval status yet)
+            // Calculate counts
             AllCount = allPackages.Count;
-            PendingCount = 0; // Will implement when we add approval workflow
-            ApprovedCount = allPackages.Count(p => p.IsActive);
-            RejectedCount = allPackages.Count(p => !p.IsActive);
+            PendingCount = 0; 
+            ApprovedCount = allPackages.Count(p => p.IsActive == 1);
+            RejectedCount = allPackages.Count(p => p.IsActive == 0);
 
             // Filter packages based on the selected filter
             Packages = Filter switch
             {
-                "pending" => new List<Package>(), // Empty for now
-                "approved" => allPackages.Where(p => p.IsActive).ToList(),
-                "rejected" => allPackages.Where(p => !p.IsActive).ToList(),
+                "pending" => new List<Package>(), 
+                "approved" => allPackages.Where(p => p.IsActive == 1).ToList(),
+                "rejected" => allPackages.Where(p => p.IsActive == 0).ToList(),
                 _ => allPackages
             };
 
@@ -67,7 +68,7 @@ namespace Purrnet.Pages.Admin
                 Packages = Packages.Where(p => 
                     p.Name.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ||
                     p.Description.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase) ||
-                    p.Authors.Any(a => a.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase))
+                    (JsonSerializer.Deserialize<List<string>>(p.Authors) ?? new List<string>()).Any(a => a.Contains(SearchQuery, StringComparison.OrdinalIgnoreCase))
                 ).ToList();
             }
 

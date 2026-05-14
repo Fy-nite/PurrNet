@@ -1,15 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json.Serialization;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+using System.Text.Json;
 
 namespace Purrnet.Models
 {
     public class Package
     {
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
+        [Key]
+        public int Id { get; set; }
         
         [Required]
         public string Name { get; set; } = string.Empty;
@@ -17,10 +16,9 @@ namespace Purrnet.Models
         [Required]
         public string Version { get; set; } = string.Empty;
         
-        [Required]
-        public List<string> Authors { get; set; } = new();
+        public string Authors { get; set; } = "[]"; 
         
-        public List<string> SupportedPlatforms { get; set; } = new();
+        public string SupportedPlatforms { get; set; } = "[]";
         
         public string Description { get; set; } = string.Empty;
         
@@ -30,13 +28,11 @@ namespace Purrnet.Models
         
         public string LicenseUrl { get; set; } = string.Empty;
         
-        public List<string> Keywords { get; set; } = new();
+        public string Keywords { get; set; } = "[]";
         
-        // Add categories support
-        public List<string> Categories { get; set; } = new();
+        public string Categories { get; set; } = "[]";
 
-        // Navigation property for relational categories (many-to-many) — not persisted in MongoDB
-        [BsonIgnore]
+        [NotMapped]
         public List<Category> CategoryEntities { get; set; } = new();
         
         public string Homepage { get; set; } = string.Empty;
@@ -51,73 +47,102 @@ namespace Purrnet.Models
         [Required]
         public string InstallCommand { get; set; } = string.Empty;
         
-        public List<string> Dependencies { get; set; } = new();
+        public string Dependencies { get; set; } = "[]";
         
-        // Additional metadata for the website
         public int Downloads { get; set; }
-        public DateTime LastUpdated { get; set; }
-        public DateTime CreatedAt { get; set; }
-        public bool IsActive { get; set; } = true;
-        // Mark package as flagged/outdated by admins
-        public bool IsOutdated { get; set; } = false;
+        public string LastUpdated { get; set; } = string.Empty;
+        public string CreatedAt { get; set; } = string.Empty;
+        public int IsActive { get; set; }
+        public int IsOutdated { get; set; }
         public string? CreatedBy { get; set; }
         public string? UpdatedBy { get; set; }
         public int ViewCount { get; set; }
         public double Rating { get; set; }
         public int RatingCount { get; set; }
-        public long SizeInBytes { get; set; }
+        public int SizeInBytes { get; set; }
         public string? Readme { get; set; }
         public string? Changelog { get; set; }
         public string IconUrl { get; set; } = string.Empty;
-        public List<string> VersionHistory { get; set; } = new();
+        public string VersionHistory { get; set; } = "[]";
 
-        // Optional: main executable/file name inside release assets (without or with extension)
         public string? MainFile { get; set; }
 
-        // Package approval system
-        public string ApprovalStatus { get; set; } = "Pending"; // Default to Approved for backward compatibility
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string? OwnerId { get; set; }
+        public string ApprovalStatus { get; set; } = "Pending"; 
+        public int? OwnerId { get; set; }
         public string? RejectionReason { get; set; }
 
-        // Navigation properties — not persisted in MongoDB
-        [BsonIgnore]
+        [NotMapped]
         public User? Owner { get; set; }
-        [BsonIgnore]
+        
+        [NotMapped]
         public List<User> Maintainers { get; set; } = new();
-        [BsonIgnore]
+        
+        [NotMapped]
         public List<PackageReview> Reviews { get; set; } = new();
+
+        // ── Helpers for legacy schema ─────────────────────────────────────────────
+        
+        [NotMapped, JsonIgnore]
+        public List<string> AuthorsList => SafeDeserialize(Authors);
+        
+        [NotMapped, JsonIgnore]
+        public List<string> SupportedPlatformsList => SafeDeserialize(SupportedPlatforms);
+        
+        [NotMapped, JsonIgnore]
+        public List<string> KeywordsList => SafeDeserialize(Keywords);
+        
+        [NotMapped, JsonIgnore]
+        public List<string> CategoriesList => SafeDeserialize(Categories);
+        
+        [NotMapped, JsonIgnore]
+        public List<string> DependenciesList => SafeDeserialize(Dependencies);
+        
+        [NotMapped, JsonIgnore]
+        public List<string> VersionHistoryList => SafeDeserialize(VersionHistory);
+
+        [NotMapped, JsonIgnore]
+        public DateTime CreatedAtDateTime => DateTime.TryParse(CreatedAt, out var dt) ? dt : DateTime.MinValue;
+
+        [NotMapped, JsonIgnore]
+        public DateTime LastUpdatedDateTime => DateTime.TryParse(LastUpdated, out var dt) ? dt : DateTime.MinValue;
+
+        private static List<string> SafeDeserialize(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json) || json == "[]") return new List<string>();
+            try { return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>(); }
+            catch { return new List<string>(); }
+        }
     }
 
     public class PackageReview
     {
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string PackageId { get; set; } = string.Empty;
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string? UserId { get; set; }
+        [Key]
+        public int Id { get; set; }
+        
+        public int PackageId { get; set; }
+        public int? UserId { get; set; }
 
-        /// <summary>1-5 star rating</summary>
         public int Rating { get; set; }
 
         public string Title { get; set; } = string.Empty;
         public string Body { get; set; } = string.Empty;
 
-        /// <summary>Display name – copied at review time so it survives user renames</summary>
         public string ReviewerName { get; set; } = string.Empty;
-        public string? ReviewerAvatarUrl { get; set; }
+        public string ReviewerAvatarUrl { get; set; } = string.Empty;
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime? UpdatedAt { get; set; }
+        public string CreatedAt { get; set; } = string.Empty;
+        public string? UpdatedAt { get; set; }
 
-        // Navigation — not persisted in MongoDB
-        [BsonIgnore]
+        [NotMapped, JsonIgnore]
+        public DateTime CreatedAtDateTime => DateTime.TryParse(CreatedAt, out var dt) ? dt : DateTime.MinValue;
+
+        [NotMapped]
         public Package? Package { get; set; }
-        [BsonIgnore]
+        
+        [NotMapped]
         public User? User { get; set; }
     }
+
 
     public class DependencyNode
     {
@@ -167,7 +192,6 @@ namespace Purrnet.Models
         [JsonPropertyName("keywords")]
         public List<string> Keywords { get; set; } = new();
         
-        // Add categories support to PurrConfig
         [JsonPropertyName("categories")]
         public List<string> Categories { get; set; } = new();
         
@@ -230,26 +254,32 @@ namespace Purrnet.Models
 
     public class User
     {
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
-        public string GitHubId { get; set; } = string.Empty;
+        [Key]
+        public int Id { get; set; }
+        public int GitHubId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string AvatarUrl { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
-        public DateTime LastLoginAt { get; set; }
-        public bool IsAdmin { get; set; }
-        public bool IsBanned { get; set; } = false;
+        public string CreatedAt { get; set; } = string.Empty;
+        public string LastLoginAt { get; set; } = string.Empty;
+        public int IsAdmin { get; set; }
+        public int IsBanned { get; set; } = 0;
 
-        // Navigation properties — not persisted in MongoDB
-        [BsonIgnore]
+        [NotMapped, JsonIgnore]
+        public DateTime CreatedAtDateTime => DateTime.TryParse(CreatedAt, out var dt) ? dt : DateTime.MinValue;
+
+        [NotMapped, JsonIgnore]
+        public DateTime LastLoginAtDateTime => DateTime.TryParse(LastLoginAt, out var dt) ? dt : DateTime.MinValue;
+
+        [NotMapped]
         public List<Package> OwnedPackages { get; set; } = new();
-        [BsonIgnore]
+        
+        [NotMapped]
         public List<Package> MaintainedPackages { get; set; } = new();
-        [BsonIgnore]
+        
+        [NotMapped]
         public List<AdminActivityEntity> AdminActivities { get; set; } = new();
-        [BsonIgnore]
+        [NotMapped]
         public List<PackageReview> Reviews { get; set; } = new();
     }
 
@@ -268,10 +298,9 @@ namespace Purrnet.Models
 
     public class AdminActivityEntity
     {
-        [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
-        [BsonRepresentation(BsonType.ObjectId)]
+        [Key]
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        
         public string UserId { get; set; } = string.Empty;
         public string Action { get; set; } = string.Empty;
         public string EntityType { get; set; } = string.Empty;
@@ -279,10 +308,9 @@ namespace Purrnet.Models
         public string Details { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string Username { get; set; } = string.Empty;
-        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+        public string Timestamp { get; set; } = DateTime.UtcNow.ToString("O");
 
-        // Navigation — not persisted in MongoDB
-        [BsonIgnore]
+        [NotMapped]
         public User User { get; set; } = null!;
     }
 }

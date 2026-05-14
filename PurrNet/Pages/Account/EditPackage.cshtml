@@ -40,9 +40,9 @@
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Version</label>
                                 <input type="text" name="Version" class="form-control" value="@Model.Package.Version" required />
-                                @if (Model.Package.VersionHistory?.Count > 0)
+                                @if (Model.Package.VersionHistoryList.Count > 0)
                                 {
-                                    <div class="form-text">Previous versions: @string.Join(", ", Model.Package.VersionHistory)</div>
+                                    <div class="form-text">Previous versions: @string.Join(", ", Model.Package.VersionHistoryList)</div>
                                 }
                             </div>
 
@@ -53,7 +53,7 @@
 
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Authors <span class="text-muted">(comma-separated)</span></label>
-                                <input type="text" name="Authors" class="form-control" value="@string.Join(", ", Model.Package.Authors)" />
+                                <input type="text" name="Authors" class="form-control" value="@string.Join(", ", Model.Package.AuthorsList)" />
                             </div>
 
                             <div class="mb-3">
@@ -89,17 +89,17 @@
 
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Dependencies <span class="text-muted">(comma-separated)</span></label>
-                                <input type="text" name="Dependencies" class="form-control" value="@string.Join(", ", Model.Package.Dependencies)" />
+                                <input type="text" name="Dependencies" class="form-control" value="@string.Join(", ", Model.Package.DependenciesList)" />
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Categories <span class="text-muted">(comma-separated)</span></label>
-                                <input type="text" name="Categories" class="form-control" value="@string.Join(", ", Model.Package.Categories)" />
+                                <input type="text" name="Categories" class="form-control" value="@string.Join(", ", Model.Package.CategoriesList)" />
                             </div>
 
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Keywords <span class="text-muted">(comma-separated)</span></label>
-                                <input type="text" name="Keywords" class="form-control" value="@string.Join(", ", Model.Package.Keywords)" />
+                                <input type="text" name="Keywords" class="form-control" value="@string.Join(", ", Model.Package.KeywordsList)" />
                             </div>
 
                             <div class="mb-3">
@@ -109,7 +109,7 @@
 
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Supported Platforms <span class="text-muted">(comma-separated)</span></label>
-                                <input type="text" name="SupportedPlatforms" class="form-control" value="@string.Join(", ", Model.Package.SupportedPlatforms)" />
+                                <input type="text" name="SupportedPlatforms" class="form-control" value="@string.Join(", ", Model.Package.SupportedPlatformsList)" />
                             </div>
 
                             <div class="d-flex gap-2">
@@ -132,9 +132,9 @@
                                 <span><strong>@Model.Package.Version</strong></span>
                                 <span class="badge bg-success">current</span>
                             </li>
-                            @if (Model.Package.VersionHistory?.Count > 0)
+                            @if (Model.Package.VersionHistoryList.Count > 0)
                             {
-                                @foreach (var v in Model.Package.VersionHistory.AsEnumerable().Reverse())
+                                @foreach (var v in Model.Package.VersionHistoryList.AsEnumerable().Reverse())
                                 {
                                     <li class="list-group-item d-flex justify-content-between align-items-center">
                                         <span>@v</span>
@@ -155,8 +155,8 @@
                     <div class="card-body">
                         <p class="mb-1"><i class="bi bi-download text-primary"></i> <strong>@Model.Package.Downloads.ToString("N0")</strong> downloads</p>
                         <p class="mb-1"><i class="bi bi-eye"></i> <strong>@Model.Package.ViewCount.ToString("N0")</strong> views</p>
-                        <p class="mb-1"><i class="bi bi-calendar text-muted"></i> Created <strong>@Model.Package.CreatedAt.ToString("MMM dd, yyyy")</strong></p>
-                        <p class="mb-0"><i class="bi bi-arrow-repeat text-muted"></i> Updated <strong>@Model.Package.LastUpdated.ToString("MMM dd, yyyy")</strong></p>
+                        <p class="mb-1"><i class="bi bi-calendar text-muted"></i> Created <strong>@Model.Package.CreatedAtDateTime.ToString("MMM dd, yyyy")</strong></p>
+                        <p class="mb-0"><i class="bi bi-arrow-repeat text-muted"></i> Updated <strong>@Model.Package.LastUpdatedDateTime.ToString("MMM dd, yyyy")</strong></p>
                     </div>
                 </div>
             </div>

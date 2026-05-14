@@ -1,4 +1,4 @@
-using MongoDB.Driver;
+using Microsoft.EntityFrameworkCore;
 using Purrnet.Data;
 using Purrnet.Services;
 using Microsoft.AspNetCore.Authentication.OAuth;
@@ -9,69 +9,42 @@ using Microsoft.AspNetCore.Authentication;
 using DotNetEnv;
 using Microsoft.AspNetCore.HttpOverrides;
 using Purrnet.Commands;
-using Microsoft.Extensions.Primitives; // Add this for AdminCommand
+using Microsoft.Extensions.Primitives; 
+using Purrnet.Models;
+
+// Load environment variables from .env file
+DotNetEnv.Env.TraversePath().Load();
+
+var builder = WebApplication.CreateBuilder(args);
 
 // Handle admin CLI commands before starting the web server
 if (args.Length > 0 && args[0] == "--admin")
 {
     var exitCode = await AdminCommand.ExecuteAsync(args);
-    return exitCode;
+    Environment.Exit(exitCode);
 }
-
-// Load environment variables from .env file
-Env.Load();
-
-string version = "1.2.1";
-
-var builder = WebApplication.CreateBuilder(args);
-var basePath = Environment.GetEnvironmentVariable("BASE_PATH") ?? builder.Configuration["BasePath"] ?? "/purr";
-var trustForwardHeaders = (Environment.GetEnvironmentVariable("TRUST_FORWARD_HEADERS") ?? builder.Configuration["TrustForwardHeaders"])?.ToLower() == "true";
-
-// Check for testing/debug mode from command line arguments
-var isTestingMode = args.Contains("--test") || args.Contains("--debug");
-Console.WriteLine($"Testing mode: {isTestingMode}");
-Console.WriteLine($"Command line args: {string.Join(", ", args)}");
-
-builder.Services.AddSingleton(new TestingModeService(isTestingMode));
-
-
 
 // Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddControllers();
 
-// Add CORS for API access
-builder.Services.AddCors(options =>
+// Base path configuration for reverse proxy support
+var basePath = builder.Configuration.GetValue<string>("BasePath") ?? "/";
+var trustForwardHeaders = builder.Configuration.GetValue<bool>("TrustForwardHeaders", true);
+
+// Add MariaDB
+var connectionString = Environment.GetEnvironmentVariable("MARIADB_CONNECTION_STRING") ?? builder.Configuration.GetConnectionString("MariaDB") ?? "Server=localhost;Database=PurrNet;User=purrnet;Password=purrnet;";
+builder.Services.AddDbContext<PurrNetDbContext>(options =>
 {
-    options.AddPolicy("ApiPolicy", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
 });
 
-// Add API documentation
-builder.Services.AddEndpointsApiExplorer();
-
-// Add MongoDB
-var mongoSettings = builder.Configuration.GetSection("MongoDB").Get<MongoDbSettings>() ?? new MongoDbSettings();
-mongoSettings.ConnectionString = Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING") ?? mongoSettings.ConnectionString;
-mongoSettings.DatabaseName = Environment.GetEnvironmentVariable("MONGODB_DATABASE") ?? mongoSettings.DatabaseName;
-
-builder.Services.AddSingleton(mongoSettings);
-builder.Services.AddSingleton<IMongoClient>(_ => new MongoClient(mongoSettings.ConnectionString));
-builder.Services.AddSingleton<MongoDbContext>();
-
-// Add memory cache
-builder.Services.AddMemoryCache();
-
-// Add session support for better logout handling
-builder.Services.AddSession(options =>
+// Configure Forwarded Headers for proxy
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    options.IdleTimeout = TimeSpan.FromMinutes(30);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
 });
 
 // Register services
@@ -95,7 +68,7 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.Name = ".AspNetCore.PurrNet.Auth";
     options.Cookie.Path = basePath;
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Events.OnSigningOut = async context =>
     {
@@ -121,7 +94,7 @@ builder.Services.AddAuthentication(options =>
             {
                 Path = deletePath,
                 HttpOnly = true,
-                Secure = context.HttpContext.Request.IsHttps,
+                Secure = true,
                 SameSite = SameSiteMode.Lax
             });
         }
@@ -139,9 +112,9 @@ builder.Services.AddAuthentication(options =>
     options.CorrelationCookie.Name = ".AspNetCore.PurrNet.Correlation";
     options.CorrelationCookie.Path = basePath;
     options.CorrelationCookie.SameSite = SameSiteMode.Lax;
-    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
     options.CorrelationCookie.HttpOnly = true;
-    options.CorrelationCookie.Expiration = TimeSpan.FromMinutes(5); // Short expiration
+    options.CorrelationCookie.Expiration = TimeSpan.FromMinutes(15);
     
     options.AuthorizationEndpoint = "https://github.com/login/oauth/authorize";
     options.TokenEndpoint = "https://github.com/login/oauth/access_token";
@@ -158,6 +131,35 @@ builder.Services.AddAuthentication(options =>
     
     options.Events = new OAuthEvents
     {
+        OnRemoteFailure = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("OAuth");
+            logger.LogError("Remote authentication failure: {Error}. State: {State}", context.Failure?.Message, context.Request.Query["state"]);
+            
+            // Log details about the request to help debug
+            logger.LogDebug("Failure Request Path: {Path}, Scheme: {Scheme}, Host: {Host}", 
+                context.Request.Path, context.Request.Scheme, context.Request.Host);
+                
+            return Task.CompletedTask;
+        },
+        OnRedirectToAuthorizationEndpoint = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("OAuth");
+            
+            // Log the redirect URI being sent to GitHub
+            logger.LogInformation("Redirecting to GitHub Authorization. Final URL: {RedirectUri}", context.RedirectUri);
+            
+            // Check if the internal redirect_uri parameter is using HTTP instead of HTTPS
+            if (context.RedirectUri.Contains("redirect_uri=http%3A"))
+            {
+                logger.LogWarning("Detected HTTP redirect_uri in authorization request! Forcing to HTTPS.");
+                context.RedirectUri = context.RedirectUri.Replace("redirect_uri=http%3A", "redirect_uri=https%3A");
+                logger.LogInformation("Corrected URL: {RedirectUri}", context.RedirectUri);
+            }
+            
+            context.Response.Redirect(context.RedirectUri);
+            return Task.CompletedTask;
+        },
         OnCreatingTicket = async context =>
         {
             var request = new HttpRequestMessage(HttpMethod.Get, context.Options.UserInformationEndpoint);
@@ -172,57 +174,97 @@ builder.Services.AddAuthentication(options =>
             
             // Store user info in database
             var userService = context.HttpContext.RequestServices.GetRequiredService<IUserService>();
-            var gitHubId = json.RootElement.GetProperty("id").GetInt32().ToString();
+            var oauthLogger = context.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("OAuth");
+            
+            string gitHubId;
+            try 
+            {
+                gitHubId = json.RootElement.GetProperty("id").ToString();
+                oauthLogger.LogInformation("Processing GitHub login for user {Login} (GitHub ID: {GitHubId})", 
+                    json.RootElement.GetProperty("login").GetString(), gitHubId);
+            }
+            catch (Exception ex)
+            {
+                oauthLogger.LogError(ex, "Failed to parse GitHub user information from JSON response");
+                return;
+            }
+
             var username = json.RootElement.GetProperty("login").GetString() ?? "";
             var email = json.RootElement.TryGetProperty("email", out var emailProp) ? emailProp.GetString() ?? "" : "";
             var avatarUrl = json.RootElement.GetProperty("avatar_url").GetString() ?? "";
             
             try
             {
+                oauthLogger.LogDebug("Looking up user {Username} by GitHub ID {GitHubId}...", username, gitHubId);
                 var user = await userService.GetUserByGitHubIdAsync(gitHubId);
+                
                 if (user == null)
                 {
+                    oauthLogger.LogInformation("User {Username} not found in database, creating new record...", username);
                     user = await userService.CreateUserAsync(gitHubId, username, email, avatarUrl);
+                    oauthLogger.LogInformation("Created new user {Username} with internal ID {UserId}", username, user.Id);
                 }
                 else
                 {
+                    oauthLogger.LogInformation("User {Username} found in database (internal ID: {UserId}), updating profile...", username, user.Id);
                     user = await userService.UpdateUserAsync(user);
                 }
 
-                // Add custom claims
+                // Add custom claims to the identity
                 var identity = (ClaimsIdentity)context.Principal!.Identity!;
                 identity.AddClaim(new Claim("UserId", user.Id.ToString()));
                 identity.AddClaim(new Claim("IsAdmin", user.IsAdmin.ToString()));
+                
+                oauthLogger.LogInformation("Successfully added claims for {Username}. UserId: {UserId}, IsAdmin: {IsAdmin}", 
+                    username, user.Id, user.IsAdmin);
             }
             catch (Exception ex)
             {
-                var oauthLogger = context.HttpContext.RequestServices
-                    .GetRequiredService<ILoggerFactory>().CreateLogger("OAuth");
-                oauthLogger.LogError(ex, "Failed to persist user {Username} during GitHub OAuth login; user claims will be omitted", username);
+                oauthLogger.LogError(ex, "Database error while persisting user {Username} during login", username);
             }
         }
     };
 });
 
+// Add memory cache
+builder.Services.AddMemoryCache();
+
+// Add session support
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+
+// Add TestingModeService
+bool isTestingMode = builder.Configuration.GetValue<bool>("TestingMode", false);
+builder.Services.AddSingleton(new TestingModeService(isTestingMode));
+
 var app = builder.Build();
+
+// Enable Forwarded Headers immediately
+app.UseForwardedHeaders();
+
+// Request logging for debugging
+app.Use(async (context, next) =>
+{
+    var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("RequestLogging");
+    logger.LogInformation("Request: {Method} {Path}{Query} (Scheme: {Scheme})", 
+        context.Request.Method, context.Request.Path, context.Request.QueryString, context.Request.Scheme);
+    await next();
+});
+
 app.UsePathBase(basePath); // Set the base path for the application
 Console.WriteLine($"Application base path set to {basePath}");
+
 // If configured, trust common proxy forwarded headers and allow the proxy to set a request PathBase
 if (trustForwardHeaders)
 {
     var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
     var fwdLogger = loggerFactory.CreateLogger("ForwardedHeaders");
     fwdLogger.LogInformation("TRUST_FORWARD_HEADERS=true — enabling forwarding of headers and X-Forwarded-Prefix support (trusted proxy)");
-
-    var forwardOptions = new ForwardedHeadersOptions
-    {
-        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
-    };
-    // Allow forwarded headers from any proxy (operator must ensure this is safe in their environment)
-    forwardOptions.KnownNetworks.Clear();
-    forwardOptions.KnownProxies.Clear();
-
-    app.UseForwardedHeaders(forwardOptions);
 
     app.Use(async (context, next) =>
     {
@@ -251,19 +293,20 @@ if (trustForwardHeaders)
         await next();
     });
 }
+
 // Seed default categories on startup
 using (var scope = app.Services.CreateScope())
 {
     var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-    var mongoCtx = scope.ServiceProvider.GetRequiredService<MongoDbContext>();
+    var dbContext = scope.ServiceProvider.GetRequiredService<PurrNetDbContext>();
     try
     {
-        await mongoCtx.SeedDefaultCategoriesAsync();
-        startupLogger.LogInformation("MongoDB ready");
+        await dbContext.SeedDefaultCategoriesAsync();
+        startupLogger.LogInformation("MariaDB ready");
     }
     catch (Exception ex)
     {
-        startupLogger.LogError(ex, "MongoDB startup seeding failed");
+        startupLogger.LogError(ex, "MariaDB startup initialization failed");
     }
 }
 
@@ -271,26 +314,14 @@ using (var scope = app.Services.CreateScope())
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
-// Comment out this line temporarily for HTTP testing
-// app.UseHttpsRedirection();
-var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
-contentTypeProvider.Mappings[".ps1"] = "text/plain";
-contentTypeProvider.Mappings[".sh"] = "text/plain";
-app.UseStaticFiles(new StaticFileOptions
-{
-    ContentTypeProvider = contentTypeProvider
-});
-
-
+app.UseStaticFiles();
 
 app.UseRouting();
-// Enable CORS for API
-app.UseCors("ApiPolicy");
 
-// Add session middleware before authentication
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -298,15 +329,20 @@ app.UseAuthorization();
 app.MapRazorPages();
 app.MapControllers();
 
-// Simple endpoint to return the latest release tag as plain text for installers
-app.MapGet("/Latest", async () =>
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new { status = "Healthy", database = "MariaDB" }));
+
+// Minimal version info API for the CLI
+app.MapGet("/api/version", async (IConfiguration config) =>
 {
+    var version = "1.0.0";
     try
     {
-        using var httpClient = new HttpClient();
-        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("PurrInstaller/1.0");
-        var response = await httpClient.GetStringAsync("https://api.github.com/repos/Fy-nite/Purr/releases/latest");
-        using var doc = System.Text.Json.JsonDocument.Parse(response);
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.Add("User-Agent", "PurrNet-Server");
+        var response = await client.GetAsync("https://api.github.com/repos/Finite-Finite/PurrNet/releases/latest");
+        var json = await response.Content.ReadAsStringAsync();
+        var doc = JsonDocument.Parse(json);
         var tag = doc.RootElement.GetProperty("tag_name").GetString();
         return Results.Text(tag?.TrimStart('v') ?? "Unknown");
     }

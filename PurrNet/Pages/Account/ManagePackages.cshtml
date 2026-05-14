@@ -58,8 +58,8 @@
                                 </td>
                                 <td><code>@pkg.Version</code></td>
                                 <td>
-                                    <span class="badge @(pkg.IsActive ? "bg-success" : "bg-secondary")">
-                                        @(pkg.IsActive ? "Active" : "Inactive")
+                                    <span class="badge @(pkg.IsActive == 1 ? "bg-success" : "bg-secondary")">
+                                        @(pkg.IsActive == 1 ? "Active" : "Inactive")
                                     </span>
                                     @if (pkg.ApprovalStatus == "Pending")
                                     {
@@ -78,9 +78,9 @@
                                             <input type="hidden" name="id" value="@pkg.Id" />
                                             <button type="submit"
                                                     class="btn btn-outline-warning"
-                                                    title="@(pkg.IsActive ? "Deactivate" : "Activate")"
-                                                    onclick="return confirm('Are you sure you want to @(pkg.IsActive ? "deactivate" : "activate") this package?')">
-                                                <i class="bi bi-toggle-@(pkg.IsActive ? "on" : "off")"></i>
+                                                    title="@(pkg.IsActive == 1 ? "Deactivate" : "Activate")"
+                                                    onclick="return confirm('Are you sure you want to @(pkg.IsActive == 1 ? "deactivate" : "activate") this package?')">
+                                                <i class="bi bi-toggle-@(pkg.IsActive == 1 ? "on" : "off")"></i>
                                             </button>
                                         </form>
                                         <form method="post" asp-page-handler="Delete" style="display:inline;">

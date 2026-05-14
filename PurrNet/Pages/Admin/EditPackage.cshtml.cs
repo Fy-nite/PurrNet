@@ -23,7 +23,7 @@ namespace Purrnet.Pages.Admin
 
         public async Task<IActionResult> OnGetAsync(string id)
         {
-            if (!User.HasClaim("IsAdmin", "True"))
+            if (!User.HasClaim("IsAdmin", "1"))
                 return Forbid();
 
             Package = await _packageService.GetPackageByIdAsync(id);
@@ -49,7 +49,7 @@ namespace Purrnet.Pages.Admin
             string? SupportedPlatforms,
             string? IconUrl)
         {
-            if (!User.HasClaim("IsAdmin", "True"))
+            if (!User.HasClaim("IsAdmin", "1"))
                 return Forbid();
 
             Package = await _packageService.GetPackageByIdAsync(id);

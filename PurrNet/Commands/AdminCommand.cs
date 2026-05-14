@@ -1,4 +1,4 @@
-using MongoDB.Driver;
+using Microsoft.EntityFrameworkCore;
 using Purrnet.Data;
 using Purrnet.Models;
 using System.Text.Json;
@@ -39,28 +39,20 @@ namespace Purrnet.Commands
             }
         }
 
-        // ── MongoDB Context ───────────────────────────────────────────────────────
+        // ── EF Core Context ───────────────────────────────────────────────────────
 
-        private static MongoDbContext GetMongoContext()
+        private static PurrNetDbContext GetDbContext()
         {
             DotNetEnv.Env.TraversePath().Load();
 
             var connectionString =
-                Environment.GetEnvironmentVariable("MONGODB_CONNECTION_STRING")
-                ?? "mongodb://localhost:27017";
+                Environment.GetEnvironmentVariable("MARIADB_CONNECTION_STRING")
+                ?? "Server=localhost;Database=purrnet;User=purrnet;Password=purrnet;";
 
-            var databaseName =
-                Environment.GetEnvironmentVariable("MONGODB_DATABASE")
-                ?? "purrnet";
+            var optionsBuilder = new DbContextOptionsBuilder<PurrNetDbContext>();
+            optionsBuilder.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
 
-            var settings = new MongoDbSettings
-            {
-                ConnectionString = connectionString,
-                DatabaseName = databaseName
-            };
-
-            var client = new MongoClient(connectionString);
-            return new MongoDbContext(client, settings);
+            return new PurrNetDbContext(optionsBuilder.Options);
         }
 
         // ── Commands ──────────────────────────────────────────────────────────────
@@ -74,17 +66,17 @@ namespace Purrnet.Commands
             }
 
             var username = args[2];
-            var ctx = GetMongoContext();
+            using var ctx = GetDbContext();
 
-            var user = await ctx.Users.Find(u => u.Username == username).FirstOrDefaultAsync();
+            var user = await ctx.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null)
             {
                 Console.Error.WriteLine($"User '{username}' not found.");
                 return 1;
             }
 
-            var update = Builders<User>.Update.Set(u => u.IsAdmin, true);
-            await ctx.Users.UpdateOneAsync(u => u.Id == user.Id, update);
+            user.IsAdmin = 1;
+            await ctx.SaveChangesAsync();
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"[OK] User '{username}' has been promoted to admin.");
@@ -101,17 +93,17 @@ namespace Purrnet.Commands
             }
 
             var username = args[2];
-            var ctx = GetMongoContext();
+            using var ctx = GetDbContext();
 
-            var user = await ctx.Users.Find(u => u.Username == username).FirstOrDefaultAsync();
+            var user = await ctx.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null)
             {
                 Console.Error.WriteLine($"User '{username}' not found.");
                 return 1;
             }
 
-            var update = Builders<User>.Update.Set(u => u.IsAdmin, false);
-            await ctx.Users.UpdateOneAsync(u => u.Id == user.Id, update);
+            user.IsAdmin = 0;
+            await ctx.SaveChangesAsync();
 
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine($"[OK] Admin rights revoked from '{username}'.");
@@ -122,18 +114,15 @@ namespace Purrnet.Commands
         private static async Task<int> ListPackagesAsync(string[] args)
         {
             var statusFilter = args.Length >= 3 ? args[2] : "all";
-            var ctx = GetMongoContext();
+            using var ctx = GetDbContext();
 
-            var filter = statusFilter == "all"
-                ? FilterDefinition<Package>.Empty
-                : Builders<Package>.Filter.Regex(
-                    p => p.ApprovalStatus,
-                    new MongoDB.Bson.BsonRegularExpression($"^{statusFilter}$", "i"));
+            IQueryable<Package> query = ctx.Packages;
+            if (statusFilter != "all")
+            {
+                query = query.Where(p => EF.Functions.Like(p.ApprovalStatus, statusFilter));
+            }
 
-            var packages = await ctx.Packages
-                .Find(filter)
-                .SortBy(p => p.Name)
-                .ToListAsync();
+            var packages = await query.OrderBy(p => p.Name).ToListAsync();
 
             if (packages.Count == 0)
             {
@@ -141,13 +130,13 @@ namespace Purrnet.Commands
                 return 0;
             }
 
-            Console.WriteLine($"{"ID",-26} {"Name",-40} {"Status",-12} {"Active",-8} {"Downloads",-10}");
-            Console.WriteLine(new string('-', 100));
+            Console.WriteLine($"{"ID",-36} {"Name",-40} {"Status",-12} {"Active",-8} {"Downloads",-10}");
+            Console.WriteLine(new string('-', 110));
 
             foreach (var pkg in packages)
             {
-                var activeLabel = pkg.IsActive ? "Yes" : "No";
-                Console.WriteLine($"{pkg.Id,-26} {pkg.Name,-40} {pkg.ApprovalStatus,-12} {activeLabel,-8} {pkg.Downloads,-10}");
+                var activeLabel = pkg.IsActive == 1 ? "Yes" : "No";
+                Console.WriteLine($"{pkg.Id,-36} {pkg.Name,-40} {pkg.ApprovalStatus,-12} {activeLabel,-8} {pkg.Downloads,-10}");
             }
 
             Console.WriteLine($"\nTotal: {packages.Count}");
@@ -156,8 +145,8 @@ namespace Purrnet.Commands
 
         private static async Task<int> ListUsersAsync(string[] args)
         {
-            var ctx = GetMongoContext();
-            var users = await ctx.Users.Find(FilterDefinition<User>.Empty).SortBy(u => u.Username).ToListAsync();
+            using var ctx = GetDbContext();
+            var users = await ctx.Users.OrderBy(u => u.Username).ToListAsync();
 
             if (users.Count == 0)
             {
@@ -165,14 +154,14 @@ namespace Purrnet.Commands
                 return 0;
             }
 
-            Console.WriteLine($"{"ID",-26} {"Username",-30} {"Admin",-8} {"Banned",-8} {"Email",-40}");
-            Console.WriteLine(new string('-', 116));
+            Console.WriteLine($"{"ID",-36} {"Username",-30} {"Admin",-8} {"Banned",-8} {"Email",-40}");
+            Console.WriteLine(new string('-', 126));
 
             foreach (var user in users)
             {
-                var adminLabel = user.IsAdmin ? "Yes" : "No";
-                var bannedLabel = user.IsBanned ? "Yes" : "No";
-                Console.WriteLine($"{user.Id,-26} {user.Username,-30} {adminLabel,-8} {bannedLabel,-8} {user.Email,-40}");
+                var adminLabel = user.IsAdmin == 1 ? "Yes" : "No";
+                var bannedLabel = user.IsBanned == 1 ? "Yes" : "No";
+                Console.WriteLine($"{user.Id,-36} {user.Username,-30} {adminLabel,-8} {bannedLabel,-8} {user.Email,-40}");
             }
 
             Console.WriteLine($"\nTotal: {users.Count}");
@@ -182,9 +171,9 @@ namespace Purrnet.Commands
         private static async Task<int> ExportPackagesAsync(string[] args)
         {
             var outputPath = args.Length >= 3 ? args[2] : "packages_export.json";
-            var ctx = GetMongoContext();
+            using var ctx = GetDbContext();
 
-            var packages = await ctx.Packages.Find(FilterDefinition<Package>.Empty).ToListAsync();
+            var packages = await ctx.Packages.ToListAsync();
 
             var json = JsonSerializer.Serialize(packages, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(outputPath, json);
@@ -219,24 +208,26 @@ namespace Purrnet.Commands
                 return 1;
             }
 
-            var ctx = GetMongoContext();
+            using var ctx = GetDbContext();
             int imported = 0;
             int skipped = 0;
 
             foreach (var pkg in packages)
             {
-                var existing = await ctx.Packages.Find(p => p.Name == pkg.Name).FirstOrDefaultAsync();
-                if (existing != null)
+                var existing = await ctx.Packages.AnyAsync(p => p.Name == pkg.Name);
+                if (existing)
                 {
                     skipped++;
                     continue;
                 }
 
-                // Clear the ID so MongoDB assigns a new one
-                pkg.Id = null!;
-                await ctx.Packages.InsertOneAsync(pkg);
+                // Ensure a new ID if needed, or keep provided if it's unique
+                // pkg.Id = Guid.NewGuid().ToString(); 
+                ctx.Packages.Add(pkg);
                 imported++;
             }
+
+            await ctx.SaveChangesAsync();
 
             Console.ForegroundColor = ConsoleColor.Green;
             Console.WriteLine($"[OK] Import complete: {imported} imported, {skipped} skipped (already exist).");

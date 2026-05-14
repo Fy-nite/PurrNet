@@ -40,8 +40,8 @@ namespace Purrnet.Pages.Account
 
                 if (CurrentUser != null)
                 {
-                    OwnedPackages = await _userService.GetUserPackagesAsync(CurrentUser.Id);
-                    MaintainedPackages = await _userService.GetUserMaintainedPackagesAsync(CurrentUser.Id);
+                    OwnedPackages = await _userService.GetUserPackagesAsync(CurrentUser.Id.ToString());
+                    MaintainedPackages = await _userService.GetUserMaintainedPackagesAsync(CurrentUser.Id.ToString());
                 }
 
                 return Page();

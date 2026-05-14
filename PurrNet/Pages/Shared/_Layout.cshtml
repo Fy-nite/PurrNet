@@ -104,7 +104,7 @@
                                 </a>
                                 <ul class="dropdown-menu">
                                     <li><a class="dropdown-item" asp-page="/Account/Profile"><i class="bi bi-person"></i> My Profile</a></li>
-                                    @if (User.HasClaim("IsAdmin", "True"))
+                                    @if (User.HasClaim("IsAdmin", "1"))
                                     {
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" asp-page="/Admin/Index"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
