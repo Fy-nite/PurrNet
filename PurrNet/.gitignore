@@ -17,6 +17,7 @@ Purrnet.db
 *.sln.docstates
 *.db
 *.db-shm
+appsettings.json
 *.db-wal
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
