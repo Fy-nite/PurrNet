@@ -484,4 +484,5 @@ $RECYCLE.BIN/
 *.swp
 Purrnet.db
 Purrnet.db
+*/appsettings.json
 PurrNet/appsettings.json

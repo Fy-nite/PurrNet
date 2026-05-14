@@ -33,7 +33,10 @@ var basePath = builder.Configuration.GetValue<string>("BasePath") ?? "/";
 var trustForwardHeaders = builder.Configuration.GetValue<bool>("TrustForwardHeaders", true);
 
 // Add MariaDB
-var connectionString = Environment.GetEnvironmentVariable("MARIADB_CONNECTION_STRING") ?? builder.Configuration.GetConnectionString("MariaDB") ?? "Server=localhost;Database=PurrNet;User=purrnet;Password=purrnet;";
+var connectionString = Environment.GetEnvironmentVariable("MARIADB_CONNECTION_STRING") 
+    ?? builder.Configuration.GetConnectionString("MariaDB") 
+    ?? "Server=localhost;Database=PurrNet;User=purrnet;Password=purrnet;";
+
 builder.Services.AddDbContext<PurrNetDbContext>(options =>
 {
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
