@@ -1,0 +1,20 @@
+[Unit]
+Description=PurrNet Package Registry Server
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=purrnet
+Group=purrnet
+WorkingDirectory=/usr/share/purrnet
+EnvironmentFile=/etc/purrnet/.env
+ExecStart=/usr/bin/dotnet /usr/share/purrnet/purrnet.dll
+Restart=on-failure
+RestartSec=10
+SyslogIdentifier=purrnet
+PrivateTmp=true
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

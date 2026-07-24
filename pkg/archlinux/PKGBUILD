@@ -1,0 +1,86 @@
+# Maintainer: Charlie <charlie@finite.ovh>
+# Contributor: Finite <github@finite.ovh>
+#
+# This PKGBUILD expects a git source with tags like v1.2.1.
+# Change _git_url to your own git server URL.
+
+pkgbase=purrnet
+pkgname=('purrnet' 'purr-cli')
+pkgver=1.2.1
+pkgrel=1
+arch=('x86_64' 'aarch64')
+url="https://github.com/fy-nite/purrnet"
+license=('AGPL3')
+makedepends=('dotnet-sdk' 'git')
+options=('!strip' '!lto')
+
+# ── change _git_url to point at your own git server ──────────────────
+_git_url="https://github.com/fy-nite/purrnet"
+# ─────────────────────────────────────────────────────────────────────
+
+source=("${_git_url}.git#tag=v${pkgver}")
+validpgpkeys=('SKIP')
+sha256sums=('SKIP')
+
+prepare() {
+  cd "${srcdir}/${pkgbase}"
+  git submodule update --init --recursive 2>/dev/null || true
+}
+
+build() {
+  cd "${srcdir}/${pkgbase}"
+
+  # ── PurrNet web app ──────────────────────────────────────────────
+  dotnet publish PurrNet/purrnet.csproj \
+    --configuration Release \
+    --runtime linux-x64 \
+    --self-contained false \
+    -p:DebugType=embedded \
+    -o "${srcdir}/publish/purrnet"
+
+  # ── purr CLI ─────────────────────────────────────────────────────
+  dotnet publish purr/purr.csproj \
+    --configuration Release \
+    --runtime linux-x64 \
+    --self-contained false \
+    -p:DebugType=embedded \
+    -o "${srcdir}/publish/purr"
+}
+
+package_purrnet() {
+  pkgdesc="PurrNet — the Finite Package Registry web server and API"
+  depends=('aspnet-runtime')
+  optdepends=('mariadb: database backend')
+
+  install -d "${pkgdir}/usr/share/purrnet"
+  cp -a "${srcdir}/publish/purrnet/." "${pkgdir}/usr/share/purrnet/"
+
+  # systemd service
+  install -Dm644 "${srcdir}/${pkgbase}/pkg/archlinux/purrnet.service" \
+    "${pkgdir}/usr/lib/systemd/system/purrnet.service"
+
+  # env config template
+  install -Dm640 "${srcdir}/${pkgbase}/pkg/archlinux/purrnet.env" \
+    "${pkgdir}/etc/purrnet/.env"
+
+  # tmpfiles.d – create /run/purrnet at boot
+  printf '%s\n' 'd /run/purrnet 0755 purrnet purrnet -' > "${pkgdir}/usr/lib/tmpfiles.d/purrnet.conf"
+}
+
+package_purr_cli() {
+  pkgdesc="purr — the Finite Package Manager CLI client"
+  depends=('dotnet-runtime')
+
+  install -d "${pkgdir}/usr/lib/purr"
+  cp -a "${srcdir}/publish/purr/." "${pkgdir}/usr/lib/purr/"
+
+  # create a wrapper script in /usr/bin/purr
+  install -Dm755 /dev/stdin "${pkgdir}/usr/bin/purr" << 'WRAPPER'
+#!/usr/bin/env bash
+exec /usr/bin/dotnet /usr/lib/purr/purr.dll "$@"
+WRAPPER
+
+  # install default fursettings.json so the CLI finds the registry
+  install -Dm644 "${srcdir}/${pkgbase}/purr/fursettings.json" \
+    "${pkgdir}/usr/lib/purr/fursettings.json"
+}
