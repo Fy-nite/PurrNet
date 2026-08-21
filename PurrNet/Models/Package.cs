@@ -70,6 +70,7 @@ namespace Purrnet.Models
         public string ApprovalStatus { get; set; } = "Pending"; 
         public int? OwnerId { get; set; }
         public string? RejectionReason { get; set; }
+        public int IsLibrary { get; set; }
 
         [NotMapped]
         public User? Owner { get; set; }
@@ -217,6 +218,9 @@ namespace Purrnet.Models
         [JsonPropertyName("mainfile")]
         [Required]
         public string MainFile { get; set; } = string.Empty;
+
+        [JsonPropertyName("is_library")]
+        public bool IsLibrary { get; set; }
     }
 
     public class PackageListResponse

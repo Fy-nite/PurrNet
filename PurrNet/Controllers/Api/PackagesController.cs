@@ -66,7 +66,8 @@ namespace Purrnet.Controllers.Api
                         Installer = p.Installer,
                         Dependencies = JsonSerializer.Deserialize<List<string>>(p.Dependencies) ?? new List<string>(),
                         MainFile = p.MainFile,
-                        IconUrl = p.IconUrl
+                        IconUrl = p.IconUrl,
+                        IsLibrary = p.IsLibrary == 1
                     }).ToList();
                 }
 
@@ -129,7 +130,8 @@ namespace Purrnet.Controllers.Api
                     Installer = package.Installer,
                     Dependencies = JsonSerializer.Deserialize<List<string>>(package.Dependencies) ?? new List<string>(),
                     MainFile = package.MainFile,
-                    IconUrl = package.IconUrl
+                    IconUrl = package.IconUrl,
+                    IsLibrary = package.IsLibrary == 1
                 });
             }
             catch (Exception ex)
@@ -275,7 +277,8 @@ namespace Purrnet.Controllers.Api
                         Git = pkg.Git,
                         Installer = pkg.Installer,
                         Dependencies = JsonSerializer.Deserialize<List<string>>(pkg.Dependencies) ?? new List<string>(),
-                        IconUrl = pkg.IconUrl
+                        IconUrl = pkg.IconUrl,
+                        IsLibrary = pkg.IsLibrary == 1
                     };
                     var entry = archive.CreateEntry(SanitizeFileName(pkg.Name) + ".Purrconfig.json");
                     using var es = entry.Open();

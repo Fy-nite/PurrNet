@@ -54,6 +54,12 @@ namespace Purrnet.Services
                 Keywords = JsonSerializer.Serialize(purrConfig.Keywords),
                 Categories = JsonSerializer.Serialize(purrConfig.Categories),
                 Git = purrConfig.Git,
+                Installer = purrConfig.Installer,
+                Homepage = purrConfig.Homepage,
+                IssueTracker = purrConfig.IssueTracker,
+                IconUrl = purrConfig.IconUrl,
+                MainFile = purrConfig.MainFile,
+                IsLibrary = purrConfig.IsLibrary ? 1 : 0,
                 OwnerId = ownerId != null ? int.Parse(ownerId) : null,
                 CreatedAt = DateTime.UtcNow.ToString("O"),
                 LastUpdated = DateTime.UtcNow.ToString("O"),
@@ -78,6 +84,18 @@ namespace Purrnet.Services
             package.Authors = JsonSerializer.Serialize(purrConfig.Authors);
             package.Categories = JsonSerializer.Serialize(purrConfig.Categories);
             package.Keywords = JsonSerializer.Serialize(purrConfig.Keywords);
+            package.Description = purrConfig.Description;
+            package.Git = purrConfig.Git;
+            package.Homepage = purrConfig.Homepage;
+            package.IssueTracker = purrConfig.IssueTracker;
+            package.ReadmeUrl = purrConfig.ReadmeUrl;
+            package.Installer = purrConfig.Installer;
+            package.License = purrConfig.License;
+            package.LicenseUrl = purrConfig.LicenseUrl;
+            package.SupportedPlatforms = JsonSerializer.Serialize(purrConfig.SupportedPlatforms);
+            package.IconUrl = purrConfig.IconUrl;
+            package.MainFile = purrConfig.MainFile;
+            package.IsLibrary = purrConfig.IsLibrary ? 1 : 0;
             package.LastUpdated = DateTime.UtcNow.ToString("O");
             
             await _context.SaveChangesAsync();

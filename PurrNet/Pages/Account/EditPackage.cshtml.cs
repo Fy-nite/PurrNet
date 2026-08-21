@@ -60,7 +60,8 @@ namespace Purrnet.Pages.Account
             string? Keywords,
             string? License,
             string? SupportedPlatforms,
-            string? IconUrl)
+            string? IconUrl,
+            bool IsLibrary = false)
         {
             var userId = await GetCurrentUserIdAsync();
             if (userId == null) return RedirectToPage("/Account/Login");
@@ -92,6 +93,7 @@ namespace Purrnet.Pages.Account
                 License         = License ?? string.Empty,
                 SupportedPlatforms = Split(SupportedPlatforms),
                 IconUrl         = IconUrl?.Trim() ?? string.Empty,
+                IsLibrary       = IsLibrary,
             };
 
             var updatedBy = User.Identity?.Name ?? "user";

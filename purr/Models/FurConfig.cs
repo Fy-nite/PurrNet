@@ -36,4 +36,7 @@ public class FurConfig
 
         [JsonPropertyName("mainfile")]
         public string? MainFile { get; set; }
-}
+
+        [JsonPropertyName("is_library")]
+        public bool IsLibrary { get; set; }
+    }
