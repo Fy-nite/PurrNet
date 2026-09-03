@@ -7,16 +7,12 @@ ARG ASPNETCORE_ENVIRONMENT=Production
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Copy csproj first for better layer caching (supports both repo-root and PurrNet-folder contexts)
+# Copy csproj first for better layer caching (compose context is repo root)
 COPY PurrNet/purrnet.csproj ./PurrNet/
-# Fallback: if build context is already PurrNet/, the above misses — also try direct copy
-COPY purrnet.csproj ./PurrNet/ 2>/dev/null || true
 RUN dotnet restore "PurrNet/purrnet.csproj"
 
 # Copy the rest of the PurrNet source
 COPY PurrNet/ ./PurrNet/
-# If context was PurrNet/ itself, the source is at /src/PurrNet/PurrNet — flatten it
-RUN if [ -d "PurrNet/PurrNet" ]; then cp -r PurrNet/PurrNet/* PurrNet/; fi
 
 WORKDIR /src/PurrNet
 RUN dotnet publish "purrnet.csproj" -c Release -o /app/publish --no-restore
