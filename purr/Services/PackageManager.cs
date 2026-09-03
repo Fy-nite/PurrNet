@@ -83,24 +83,42 @@ public class PackageManager
 
     private async Task DownloadAndInstallPackageAsync(FurConfig packageInfo)
     {
-        // If an installer script is provided in the package metadata, keep old behaviour (clone + run script).
-        // Otherwise, try to download the package's release assets and install any suitable binary onto the user's PATH.
+        // Always try release assets first — binary install is faster and doesn't require git.
+        // Only fall back to clone+installer when no release assets are available.
+        if (!string.IsNullOrEmpty(packageInfo.Git))
+        {
+            try
+            {
+                await DownloadReleaseAssetAndInstallAsync(packageInfo);
+                return;
+            }
+            catch (Exception ex)
+            {
+                if (_verbose) Console.WriteLine($"[purr] Release asset download failed: {ex.Message}");
+            }
+        }
+
+        // Fallback: clone + run installer script (or just clone)
+        var packageDir = Path.Combine(_packagesDirectory, packageInfo.Name);
+        if (Directory.Exists(packageDir) && Directory.Exists(Path.Combine(packageDir, ".git")))
+        {
+            ConsoleHelper.WriteStep("Updating", $"{packageInfo.Name} to v{packageInfo.Version}");
+            await UpdateExistingPackageAsync(packageDir, packageInfo);
+        }
+        else if (!string.IsNullOrEmpty(packageInfo.Git))
+        {
+            ConsoleHelper.WriteStep("Cloning", packageInfo.Git);
+            Directory.CreateDirectory(packageDir);
+            await CloneNewPackageAsync(packageDir, packageInfo);
+        }
+        else
+        {
+            throw new Exception($"Package '{packageInfo.Name}' has no Git URL and no release assets — cannot install");
+        }
+
+        // Run the installer script if provided
         if (!string.IsNullOrEmpty(packageInfo.Installer))
         {
-            var packageDir = Path.Combine(_packagesDirectory, packageInfo.Name);
-            if (Directory.Exists(packageDir) && Directory.Exists(Path.Combine(packageDir, ".git")))
-            {
-                ConsoleHelper.WriteStep("Updating", $"{packageInfo.Name} to v{packageInfo.Version}");
-                await UpdateExistingPackageAsync(packageDir, packageInfo);
-            }
-            else
-            {
-                ConsoleHelper.WriteStep("Cloning", packageInfo.Git);
-                Directory.CreateDirectory(packageDir);
-                await CloneNewPackageAsync(packageDir, packageInfo);
-            }
-
-            // Run the installer script
             var installerPath = Path.Combine(packageDir, packageInfo.Installer);
             if (File.Exists(installerPath))
             {
@@ -113,37 +131,19 @@ public class PackageManager
                 catch (Exception ex)
                 {
                     ConsoleHelper.WriteError($"Installer failed: {ex.Message}");
-                    throw; // Re-throw to prevent marking package as successfully installed
+                    throw;
                 }
             }
             else
             {
                 ConsoleHelper.WriteWarning($"Installer script '{packageInfo.Installer}' not found, skipping");
             }
-
-            // Save package metadata
-            var metadataPath = Path.Combine(packageDir, "furconfig.json");
-            var json = JsonSerializer.Serialize(packageInfo, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(metadataPath, json);
         }
-        else
-        {
-            // Try to download release assets and install
-            try
-            {
-                await DownloadReleaseAssetAndInstallAsync(packageInfo);
-            }
-            catch (Exception ex)
-            {
-                ConsoleHelper.WriteWarning($"Could not install from release assets: {ex.Message}");
-                ConsoleHelper.WriteInfo("Falling back to repository clone and attempting to run installer if present.");
 
-                // Fallback: clone repository to preserve previous behaviour
-                var packageDir = Path.Combine(_packagesDirectory, packageInfo.Name);
-                Directory.CreateDirectory(packageDir);
-                await CloneNewPackageAsync(packageDir, packageInfo);
-            }
-        }
+        // Save package metadata
+        var metadataPath = Path.Combine(packageDir, "furconfig.json");
+        var json = JsonSerializer.Serialize(packageInfo, new JsonSerializerOptions { WriteIndented = true });
+        await File.WriteAllTextAsync(metadataPath, json);
     }
 
     private async Task DownloadReleaseAssetAndInstallAsync(FurConfig packageInfo)
