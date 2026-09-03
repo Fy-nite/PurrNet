@@ -473,7 +473,7 @@ app.MapGet("/api/version", async (IConfiguration config) =>
     {
         using var client = new HttpClient();
         client.DefaultRequestHeaders.Add("User-Agent", "PurrNet-Server");
-        var response = await client.GetAsync("https://api.github.com/repos/Finite-Finite/PurrNet/releases/latest");
+        var response = await client.GetAsync("https://api.github.com/repos/Fy-nite/PurrNet/releases/latest");
         var json = await response.Content.ReadAsStringAsync();
         var doc = JsonDocument.Parse(json);
         var tag = doc.RootElement.GetProperty("tag_name").GetString();
@@ -482,6 +482,24 @@ app.MapGet("/api/version", async (IConfiguration config) =>
     catch
     {
         return Results.Text(version);
+    }
+});
+
+// /Latest — used by install.sh / install.ps1 to find the latest purr CLI version
+app.MapGet("/Latest", async () =>
+{
+    try
+    {
+        using var client = new HttpClient();
+        client.DefaultRequestHeaders.Add("User-Agent", "PurrInstaller/1.0");
+        var response = await client.GetStringAsync("https://api.github.com/repos/Fy-nite/PurrNet/releases/latest");
+        var doc = JsonDocument.Parse(response);
+        var tag = doc.RootElement.GetProperty("tag_name").GetString();
+        return Results.Text(tag ?? "Unknown");
+    }
+    catch
+    {
+        return Results.Text("v1.0.0");
     }
 });
 
