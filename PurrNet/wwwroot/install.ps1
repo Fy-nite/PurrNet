@@ -36,7 +36,7 @@ function Download-And-Install {
     try {
         $pkgFile1 = "$RepoName.$Version.nupkg"
         $pkgFile2 = "purr.$Version.nupkg"
-        $pkgFile3 = "$RepoName.v$Version.nupkg"
+        $pkgFile3 = "$RepoName.$Version.nupkg"
         $pkgPath = $null
         $tried = @()
 
