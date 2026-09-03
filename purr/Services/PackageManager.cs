@@ -337,6 +337,21 @@ public class PackageManager
         {
             var extractDir = Path.Combine(tmp, "ex");
             ZipFile.ExtractToDirectory(localPath, extractDir);
+
+            // Fix Windows-created zips: Compress-Archive uses \ separators which become literal
+            // characters in filenames on Linux. Move them to proper directory structure.
+            var brokenPaths = Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories)
+                .Where(f => f.Contains('\\')).ToList();
+            foreach (var broken in brokenPaths)
+            {
+                var normalized = broken.Replace('\\', Path.DirectorySeparatorChar);
+                var dir = Path.GetDirectoryName(normalized);
+                if (dir != null) Directory.CreateDirectory(dir);
+                File.Move(broken, normalized, true);
+            }
+            // Also handle empty directories left behind
+            try { foreach (var d in Directory.GetDirectories(extractDir, "*", SearchOption.AllDirectories).OrderByDescending(d => d.Length)) Directory.Delete(d, false); } catch { }
+
             // find candidate executables
             var allFiles = Directory.GetFiles(extractDir, "*", SearchOption.AllDirectories).ToList();
             if (_verbose)
