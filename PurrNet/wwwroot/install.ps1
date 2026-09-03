@@ -55,7 +55,7 @@ function Download-And-Install {
         }
 
         foreach ($pkg in @($pkgFile1, $pkgFile2, $pkgFile3)) {
-            $pkgUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/v$Version/$pkg"
+            $pkgUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/$Version/$pkg"
             $out = Join-Path $tmpDir $pkg
             $tried += $pkg
             Write-Host "Attempting to download $pkgUrl ..."
