@@ -236,16 +236,28 @@ namespace Purrnet.Services
         {
             const string key = "stats";
             if (_cache.TryGetValue<PackageStatistics>(key, out var cached) && cached != null) return cached;
-            var packages = await _context.Packages.ToListAsync();
-            var active = packages.Where(p => p.IsActive == 1).ToList();
+            // Single aggregate query instead of loading entire table into memory
+            var agg = await _context.Packages
+                .Where(p => p.IsActive == 1)
+                .GroupBy(p => 1)
+                .Select(g => new
+                {
+                    TotalCount = _context.Packages.Count(),
+                    ActiveCount = g.Count(),
+                    TotalDownloads = g.Sum(p => p.Downloads),
+                    TotalViews = g.Sum(p => p.ViewCount)
+                })
+                .FirstOrDefaultAsync();
+            var mostDownloaded = await _context.Packages.Where(p => p.IsActive == 1).OrderByDescending(p => p.Downloads).Take(5).ToListAsync();
+            var recentlyAdded = await _context.Packages.Where(p => p.IsActive == 1).OrderByDescending(p => p.CreatedAt).Take(5).ToListAsync();
             var result = new PackageStatistics
             {
-                TotalPackages = packages.Count,
-                ActivePackages = active.Count,
-                TotalDownloads = active.Sum(p => p.Downloads),
-                TotalViews = active.Sum(p => p.ViewCount),
-                MostDownloaded = active.OrderByDescending(p => p.Downloads).Take(5).ToList(),
-                RecentlyAdded = active.OrderByDescending(p => p.CreatedAt).Take(5).ToList(),
+                TotalPackages = agg?.TotalCount ?? 0,
+                ActivePackages = agg?.ActiveCount ?? 0,
+                TotalDownloads = agg?.TotalDownloads ?? 0,
+                TotalViews = agg?.TotalViews ?? 0,
+                MostDownloaded = mostDownloaded,
+                RecentlyAdded = recentlyAdded,
                 LastUpdated = DateTime.UtcNow
             };
             _cache.Set(key, result, CacheOpts);
