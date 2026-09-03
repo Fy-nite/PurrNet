@@ -365,17 +365,18 @@ startupLifetime.ApplicationStarted.Register(() =>
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<PurrNetDbContext>();
                 await dbContext.Database.EnsureCreatedAsync();
-                // Fixup for existing DBs created before 2026-09: avatar URLs could exceed varchar(255) → Data too long
-                try
+                // Fixup for existing DBs created before 2026-09: avatar URLs could exceed varchar(255) → Data too long, IsLibrary missing, Id not AUTO_INCREMENT → Can't convert NULL to Int32
+                async Task TryAlter(string sql, string msg)
                 {
-                    await dbContext.Database.ExecuteSqlRawAsync(
-                        "ALTER TABLE `PackageReviews` MODIFY COLUMN `ReviewerAvatarUrl` LONGTEXT NULL, MODIFY COLUMN `Title` LONGTEXT NULL, MODIFY COLUMN `Body` LONGTEXT NULL, MODIFY COLUMN `ReviewerName` VARCHAR(255) NULL");
-                    startupLogger.LogInformation("Ensured PackageReviews columns are LONGTEXT");
+                    try { await dbContext.Database.ExecuteSqlRawAsync(sql); startupLogger.LogInformation(msg); }
+                    catch (Exception alterEx) { startupLogger.LogDebug(alterEx, "ALTER skipped: {Sql}", sql); }
                 }
-                catch (Exception alterEx)
-                {
-                    startupLogger.LogDebug(alterEx, "PackageReviews ALTER skipped (already correct or table not yet created)");
-                }
+                await TryAlter("ALTER TABLE `PackageReviews` MODIFY COLUMN `ReviewerAvatarUrl` LONGTEXT NULL, MODIFY COLUMN `Title` LONGTEXT NULL, MODIFY COLUMN `Body` LONGTEXT NULL, MODIFY COLUMN `ReviewerName` VARCHAR(255) NULL", "Ensured PackageReviews columns are LONGTEXT");
+                await TryAlter("ALTER TABLE `Packages` ADD COLUMN `IsLibrary` INT NOT NULL DEFAULT 0", "Added Packages.IsLibrary");
+                await TryAlter("ALTER TABLE `Packages` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Packages.Id AUTO_INCREMENT");
+                await TryAlter("ALTER TABLE `Users` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Users.Id AUTO_INCREMENT");
+                await TryAlter("ALTER TABLE `PackageReviews` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured PackageReviews.Id AUTO_INCREMENT");
+                await TryAlter("ALTER TABLE `Categories` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Categories.Id AUTO_INCREMENT");
                 await dbContext.SeedDefaultCategoriesAsync();
                 startupLogger.LogInformation("MariaDB ready (attempt {Attempt}/{Max})", attempt, maxAttempts);
                 break;

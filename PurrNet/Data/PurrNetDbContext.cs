@@ -22,19 +22,28 @@ namespace Purrnet.Data
             modelBuilder.Entity<Package>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd().UseMySqlIdentityColumn();
                 entity.HasIndex(e => e.Name).IsUnique();
             });
 
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd().UseMySqlIdentityColumn();
                 entity.HasIndex(e => e.GitHubId).IsUnique();
                 entity.HasIndex(e => e.Username).IsUnique();
+            });
+
+            modelBuilder.Entity<Category>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd().UseMySqlIdentityColumn();
             });
 
             modelBuilder.Entity<PackageReview>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedOnAdd().UseMySqlIdentityColumn();
                 // GitHub avatar URLs can exceed 255 chars (query strings) — use LONGTEXT to avoid Data too long
                 entity.Property(e => e.ReviewerAvatarUrl).HasColumnType("longtext");
                 entity.Property(e => e.Title).HasColumnType("longtext");
