@@ -435,7 +435,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseStaticFiles();
+// Add MIME type for .ps1 (PowerShell) — not included in default mappings
+var mimeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+mimeProvider.Mappings[".ps1"] = "application/x-powershell";
+app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = mimeProvider });
 
 app.UseRouting();
 
