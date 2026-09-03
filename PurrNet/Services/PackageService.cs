@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Purrnet.Data;
 using Purrnet.Models;
 using System.Text.Json;
@@ -10,12 +11,29 @@ namespace Purrnet.Services
     {
         private readonly PurrNetDbContext _context;
         private readonly ILogger<PackageService> _logger;
+        private readonly IMemoryCache _cache;
         private readonly static string _sanitizeRegex = @"[^\x20-\x7e]+";
+        private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(15);
+        private static readonly MemoryCacheEntryOptions CacheOpts = new() { AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15) };
 
-        public PackageService(PurrNetDbContext context, ILogger<PackageService> logger)
+        public PackageService(PurrNetDbContext context, ILogger<PackageService> logger, IMemoryCache cache)
         {
             _context = context;
             _logger = logger;
+            _cache = cache;
+        }
+
+        private void InvalidatePackageCaches(string? packageName = null)
+        {
+            // Package writes are rare vs reads, so compact a portion on write.
+            // If a specific package is known, remove its key; otherwise compact search/stats.
+            if (packageName != null)
+            {
+                _cache.Remove($"pkg:{packageName.ToLowerInvariant()}");
+                _cache.Remove($"pkgver:{packageName.ToLowerInvariant()}");
+                _cache.Remove($"reviews:{packageName.ToLowerInvariant()}");
+            }
+            if (_cache is MemoryCache mc) mc.Compact(0.3); // evict ~30% (oldest) — effectively clears search/stats which share 15m TTL
         }
 
         public async Task<List<Package>> GetAllPackagesAsync()
@@ -25,9 +43,19 @@ namespace Purrnet.Services
 
         public async Task<Package?> GetPackageAsync(string packageName, string? version = null)
         {
+            var key = $"pkg:{packageName.ToLowerInvariant()}:{(version?.ToLowerInvariant() ?? "latest")}";
+            if (_cache.TryGetValue<Package?>(key, out var cached) && cached != null)
+                return cached;
+            // negative cache small TTL to avoid hammering on missing packages
+            if (_cache.TryGetValue<Package?>(key, out var neg) && neg == null && _cache.TryGetValue<object>(key+":neg", out _))
+                return null;
+
             var query = _context.Packages.Where(p => p.Name == packageName && p.IsActive == 1);
             if (!string.IsNullOrEmpty(version)) query = query.Where(p => p.Version == version);
-            return await query.FirstOrDefaultAsync();
+            var result = await query.FirstOrDefaultAsync();
+            if (result != null) _cache.Set(key, result, CacheOpts);
+            else _cache.Set(key + ":neg", true, TimeSpan.FromMinutes(2));
+            return result;
         }
 
         public async Task<Package?> GetPackageByIdAsync(string id)
@@ -71,6 +99,7 @@ namespace Purrnet.Services
             };
             _context.Packages.Add(package);
             await _context.SaveChangesAsync();
+            InvalidatePackageCaches(purrConfig.Name);
             return true;
         }
 
@@ -107,6 +136,7 @@ namespace Purrnet.Services
             package.InstallCommand = $"purr install {package.Name}";
             
             await _context.SaveChangesAsync();
+            InvalidatePackageCaches(package.Name);
             return true;
         }
 
@@ -115,8 +145,10 @@ namespace Purrnet.Services
             if (!int.TryParse(id, out int intId)) return false;
             var p = await _context.Packages.FindAsync(intId);
             if (p == null) return false;
+            var name = p.Name;
             _context.Packages.Remove(p);
             await _context.SaveChangesAsync();
+            InvalidatePackageCaches(name);
             return true;
         }
 
@@ -127,11 +159,14 @@ namespace Purrnet.Services
             if (p == null) return false;
             p.IsActive = p.IsActive == 1 ? 0 : 1;
             await _context.SaveChangesAsync();
+            InvalidatePackageCaches(p.Name);
             return true;
         }
 
         public async Task<SearchResult> SearchPackagesAsync(string? query = null, string? sort = null, int page = 1, int pageSize = 20)
         {
+            var key = $"search:{query?.ToLowerInvariant() ?? ""}:{sort?.ToLowerInvariant() ?? ""}:{page}:{pageSize}";
+            if (_cache.TryGetValue<SearchResult>(key, out var cached) && cached != null) return cached;
             var dbQuery = _context.Packages.Where(p => p.IsActive == 1);
             if (!string.IsNullOrEmpty(query))
             {
@@ -139,7 +174,9 @@ namespace Purrnet.Services
             }
             var total = await dbQuery.CountAsync();
             var items = await dbQuery.OrderBy(p => p.Name).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-            return new SearchResult { Packages = items, TotalCount = total };
+            var result = new SearchResult { Packages = items, TotalCount = total };
+            _cache.Set(key, result, CacheOpts);
+            return result;
         }
 
         public async Task<PackageListResponse> GetPackageListAsync(string? sort = null, string? search = null, bool includeDetails = false)
@@ -155,36 +192,53 @@ namespace Purrnet.Services
 
         public async Task<List<Package>> GetPackagesByTagAsync(string tag)
         {
+            var key = $"bytag:{tag.ToLowerInvariant()}";
+            if (_cache.TryGetValue<List<Package>>(key, out var cached) && cached != null) return cached;
             var all = await _context.Packages.Where(p => p.IsActive == 1).ToListAsync();
-            return all.Where(p => p.KeywordsList.Contains(tag, StringComparer.OrdinalIgnoreCase)).ToList();
+            var result = all.Where(p => p.KeywordsList.Contains(tag, StringComparer.OrdinalIgnoreCase)).ToList();
+            _cache.Set(key, result, CacheOpts);
+            return result;
         }
 
         public async Task<List<Package>> GetPackagesByAuthorAsync(string author)
         {
+            var key = $"byauthor:{author.ToLowerInvariant()}";
+            if (_cache.TryGetValue<List<Package>>(key, out var cached) && cached != null) return cached;
             var all = await _context.Packages.Where(p => p.IsActive == 1).ToListAsync();
-            return all.Where(p => p.AuthorsList.Contains(author, StringComparer.OrdinalIgnoreCase)).ToList();
+            var result = all.Where(p => p.AuthorsList.Contains(author, StringComparer.OrdinalIgnoreCase)).ToList();
+            _cache.Set(key, result, CacheOpts);
+            return result;
         }
 
         public async Task<List<Package>> GetPackagesByCategoryAsync(string category)
         {
+            var key = $"bycat:{category.ToLowerInvariant()}";
+            if (_cache.TryGetValue<List<Package>>(key, out var cached) && cached != null) return cached;
             var all = await _context.Packages.Where(p => p.IsActive == 1).ToListAsync();
-            return all.Where(p => p.CategoriesList.Contains(category, StringComparer.OrdinalIgnoreCase)).ToList();
+            var result = all.Where(p => p.CategoriesList.Contains(category, StringComparer.OrdinalIgnoreCase)).ToList();
+            _cache.Set(key, result, CacheOpts);
+            return result;
         }
 
         public async Task<List<string>> GetPackageVersionsAsync(string packageName)
         {
+            var key = $"pkgver:{packageName.ToLowerInvariant()}";
+            if (_cache.TryGetValue<List<string>>(key, out var cached) && cached != null) return cached;
             var p = await _context.Packages.FirstOrDefaultAsync(p => p.Name == packageName);
             if (p == null) return new List<string>();
             var versions = p.VersionHistoryList;
             if (!versions.Contains(p.Version)) versions.Insert(0, p.Version);
+            _cache.Set(key, versions, CacheOpts);
             return versions;
         }
 
         public async Task<PackageStatistics> GetStatisticsAsync()
         {
+            const string key = "stats";
+            if (_cache.TryGetValue<PackageStatistics>(key, out var cached) && cached != null) return cached;
             var packages = await _context.Packages.ToListAsync();
             var active = packages.Where(p => p.IsActive == 1).ToList();
-            return new PackageStatistics
+            var result = new PackageStatistics
             {
                 TotalPackages = packages.Count,
                 ActivePackages = active.Count,
@@ -194,6 +248,8 @@ namespace Purrnet.Services
                 RecentlyAdded = active.OrderByDescending(p => p.CreatedAt).Take(5).ToList(),
                 LastUpdated = DateTime.UtcNow
             };
+            _cache.Set(key, result, CacheOpts);
+            return result;
         }
 
         public async Task<bool> IncrementDownloadCountAsync(string id)
@@ -203,6 +259,7 @@ namespace Purrnet.Services
             if (p == null) return false;
             p.Downloads++;
             await _context.SaveChangesAsync();
+            _cache.Remove("stats");
             return true;
         }
 
@@ -213,6 +270,7 @@ namespace Purrnet.Services
             if (p == null) return false;
             p.ViewCount++;
             await _context.SaveChangesAsync();
+            _cache.Remove("stats");
             return true;
         }
 
@@ -223,25 +281,38 @@ namespace Purrnet.Services
             if (p == null) return false;
             p.IsOutdated = outdated ? 1 : 0;
             await _context.SaveChangesAsync();
+            InvalidatePackageCaches(p.Name);
             return true;
         }
 
         public async Task<List<string>> GetPopularTagsAsync(int limit)
         {
+            var key = $"popular:tags:{limit}";
+            if (_cache.TryGetValue<List<string>>(key, out var cached) && cached != null) return cached;
             var packages = await _context.Packages.Where(p => p.IsActive == 1).ToListAsync();
-            return packages.SelectMany(p => p.KeywordsList).GroupBy(t => t).OrderByDescending(g => g.Count()).Take(limit).Select(g => g.Key).ToList();
+            var result = packages.SelectMany(p => p.KeywordsList).GroupBy(t => t).OrderByDescending(g => g.Count()).Take(limit).Select(g => g.Key).ToList();
+            _cache.Set(key, result, CacheOpts);
+            return result;
         }
 
         public async Task<List<string>> GetPopularAuthorsAsync(int limit)
         {
+            var key = $"popular:authors:{limit}";
+            if (_cache.TryGetValue<List<string>>(key, out var cached) && cached != null) return cached;
             var packages = await _context.Packages.Where(p => p.IsActive == 1).ToListAsync();
-            return packages.SelectMany(p => p.AuthorsList).GroupBy(a => a).OrderByDescending(g => g.Count()).Take(limit).Select(g => g.Key).ToList();
+            var result = packages.SelectMany(p => p.AuthorsList).GroupBy(a => a).OrderByDescending(g => g.Count()).Take(limit).Select(g => g.Key).ToList();
+            _cache.Set(key, result, CacheOpts);
+            return result;
         }
 
         public async Task<List<string>> GetPopularCategoriesAsync(int limit)
         {
+            var key = $"popular:categories:{limit}";
+            if (_cache.TryGetValue<List<string>>(key, out var cached) && cached != null) return cached;
             var packages = await _context.Packages.Where(p => p.IsActive == 1).ToListAsync();
-            return packages.SelectMany(p => p.CategoriesList).GroupBy(c => c).OrderByDescending(g => g.Count()).Take(limit).Select(g => g.Key).ToList();
+            var result = packages.SelectMany(p => p.CategoriesList).GroupBy(c => c).OrderByDescending(g => g.Count()).Take(limit).Select(g => g.Key).ToList();
+            _cache.Set(key, result, CacheOpts);
+            return result;
         }
 
         public async Task<bool> InitializeDatabaseAsync() => true;
@@ -249,6 +320,7 @@ namespace Purrnet.Services
         {
             _context.Packages.RemoveRange(_context.Packages);
             await _context.SaveChangesAsync();
+            if (_cache is MemoryCache mc2) mc2.Compact(1.0);
             return true;
         }
 
@@ -259,9 +331,13 @@ namespace Purrnet.Services
 
         public async Task<List<PackageReview>> GetPackageReviewsAsync(string packageName)
         {
+            var key = $"reviews:{packageName.ToLowerInvariant()}";
+            if (_cache.TryGetValue<List<PackageReview>>(key, out var cached) && cached != null) return cached;
             var package = await _context.Packages.FirstOrDefaultAsync(p => p.Name == packageName);
             if (package == null) return new List<PackageReview>();
-            return await _context.PackageReviews.Where(r => r.PackageId == package.Id).OrderByDescending(r => r.CreatedAt).ToListAsync();
+            var result = await _context.PackageReviews.Where(r => r.PackageId == package.Id).OrderByDescending(r => r.CreatedAt).ToListAsync();
+            _cache.Set(key, result, TimeSpan.FromMinutes(5)); // reviews fresher
+            return result;
         }
 
         public async Task<(bool success, string error)> AddPackageReviewAsync(string packageName, string? userId, string reviewerName, string? reviewerAvatarUrl, int rating, string title, string body)
@@ -288,6 +364,8 @@ namespace Purrnet.Services
             _context.PackageReviews.Add(review);
             await _context.SaveChangesAsync();
             await RecalculateRatingAsync(package.Id);
+            InvalidatePackageCaches(packageName);
+            _cache.Remove("stats");
             return (true, "");
         }
 
@@ -306,9 +384,12 @@ namespace Purrnet.Services
             if (!isAdmin && (userId == null || !int.TryParse(userId, out int intUserId) || review.UserId != intUserId)) return false;
             
             int pkgId = review.PackageId;
+            var pkg = await _context.Packages.FindAsync(pkgId);
             _context.PackageReviews.Remove(review);
             await _context.SaveChangesAsync();
             await RecalculateRatingAsync(pkgId);
+            if (pkg != null) InvalidatePackageCaches(pkg.Name);
+            _cache.Remove("stats");
             return true;
         }
 

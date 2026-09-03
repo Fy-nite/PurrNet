@@ -50,20 +50,20 @@ if (File.Exists("/.dockerenv") && connectionString.Contains("host.docker.interna
     Console.WriteLine($"[PurrNet] Using host DB via host.docker.internal: {connectionString.Split(';')[0]};...");
 }
 
-// HDD-slow / packet out-of-order fix: MariaDB on HDD + MySqlConnector pooling = "Packet out-of-order. Expected 1; got 3."
-// Root cause is pooled connection reused after server closed it (wait_timeout / slow disk) and pipelining left unread payload.
-// Fix: FORCE disable pipelining + pooling via MySqlConnectionStringBuilder (each request gets fresh connection — tiny cost for low-traffic PurrNet), and don't AutoDetect version at startup.
+// HDD-slow / packet out-of-order fix: MariaDB on HDD + pipelining = "Packet out-of-order. Expected 1; got 3."
+// Keep pooling ON for speed (HDD still needs pooling), but force Pipelining=false and sane timeouts.
+// Pooling=false was too slow (new TCP+TLS per request). With 15-min cache below, pooling is safe.
 try
 {
     var csb = new MySqlConnector.MySqlConnectionStringBuilder(connectionString);
     csb.Pipelining = false;
-    csb.Pooling = false;
-    // keep idle/timeout sane for HDD
-    csb.ConnectionIdleTimeout = 5;
+    csb.Pooling = true;
+    csb.MinimumPoolSize = 0;
+    csb.MaximumPoolSize = 20;
+    csb.ConnectionIdleTimeout = 30;
     csb.DefaultCommandTimeout = 60;
     csb.AllowPublicKeyRetrieval = true;
     csb.SslMode = MySqlConnector.MySqlSslMode.None;
-    // preserve Port if user set it via MARIADB_PORT, otherwise builder keeps 3306
     connectionString = csb.ConnectionString;
 }
 catch (Exception ex)
@@ -72,10 +72,10 @@ catch (Exception ex)
     if (!connectionString.Contains("Pipelining", StringComparison.OrdinalIgnoreCase))
         connectionString += ";Pipelining=false";
     if (!connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
-        connectionString += ";Pooling=false";
+        connectionString += ";Pooling=true";
 }
 
-Console.WriteLine($"[PurrNet] Final connecting string: {string.Join(";", connectionString.Split(';').Where(s => !s.ToLower().Contains("password") && !s.ToLower().Contains("pwd")))} (Pooling=false,Pipelining=false)");
+Console.WriteLine($"[PurrNet] Final connecting string: {string.Join(";", connectionString.Split(';').Where(s => !s.ToLower().Contains("password") && !s.ToLower().Contains("pwd")))} (Pooling=true,Pipelining=false)");
 
 builder.Services.AddDbContext<PurrNetDbContext>(options =>
 {
