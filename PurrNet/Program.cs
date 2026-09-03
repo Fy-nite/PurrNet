@@ -348,6 +348,7 @@ if (trustForwardHeaders)
 
 // Seed default categories — background retry so power-outage / DB-late boots don't block startup (fixes systemd segfault on cold boot & keeps login page responsive)
 var startupLifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+var connStrForAlter = connectionString; // captured before lambda for schema checks
 startupLifetime.ApplicationStarted.Register(() =>
 {
     _ = Task.Run(async () =>
@@ -372,12 +373,13 @@ startupLifetime.ApplicationStarted.Register(() =>
                 // Only ALTER PackageReviews longtext if not already longtext (check INFORMATION_SCHEMA to avoid 5-min COPY on HDD every boot)
                 try
                 {
-                    var conn = dbContext.Database.GetDbConnection();
-                    await conn.OpenAsync();
-                    using var cmd = conn.CreateCommand();
+                    // Use a separate connection for the schema check — never close EF Core's managed connection manually
+                    using var checkConn = new MySqlConnector.MySqlConnection(connStrForAlter);
+                    await checkConn.OpenAsync();
+                    using var cmd = checkConn.CreateCommand();
                     cmd.CommandText = "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'PackageReviews' AND COLUMN_NAME = 'ReviewerAvatarUrl'";
                     var dt = (await cmd.ExecuteScalarAsync())?.ToString();
-                    await conn.CloseAsync();
+                    // checkConn is disposed here, which closes it — EF Core's connection untouched
                     if (dt != null && !dt.Equals("longtext", StringComparison.OrdinalIgnoreCase))
                     {
                         await TryAlter("ALTER TABLE `PackageReviews` MODIFY COLUMN `ReviewerAvatarUrl` LONGTEXT NULL, MODIFY COLUMN `Title` LONGTEXT NULL, MODIFY COLUMN `Body` LONGTEXT NULL, MODIFY COLUMN `ReviewerName` VARCHAR(255) NULL", "Ensured PackageReviews columns are LONGTEXT");
@@ -387,14 +389,28 @@ startupLifetime.ApplicationStarted.Register(() =>
                 catch (Exception ex) { startupLogger.LogDebug(ex, "Longtext check failed, attempting ALTER anyway"); await TryAlter("ALTER TABLE `PackageReviews` MODIFY COLUMN `ReviewerAvatarUrl` LONGTEXT NULL, MODIFY COLUMN `Title` LONGTEXT NULL, MODIFY COLUMN `Body` LONGTEXT NULL, MODIFY COLUMN `ReviewerName` VARCHAR(255) NULL", "Ensured PackageReviews columns are LONGTEXT"); }
                 // Clean corrupted row seen in dboutput: PackageReviews Id NULL (second review for ccl PackageId 9) — delete first, otherwise AUTO_INCREMENT ALTER fails
                 await TryAlter("DELETE FROM `PackageReviews` WHERE `Id` IS NULL OR `Id` = 0", "Cleaned NULL Id PackageReviews");
-                // IsLibrary / AUTO_INCREMENT — only if column/table not already correct
+                // IsLibrary — only if column doesn't exist yet
                 await TryAlter("ALTER TABLE `Packages` ADD COLUMN `IsLibrary` INT NOT NULL DEFAULT 0", "Added Packages.IsLibrary");
                 // Index for reviews — PackageReviews.PackageId was missing, causing full scan on HDD (5+ min on large table)
                 await TryAlter("CREATE INDEX IF NOT EXISTS `IX_PackageReviews_PackageId` ON `PackageReviews` (`PackageId`)", "Ensured PackageReviews.PackageId index");
                 await TryAlter("CREATE INDEX IF NOT EXISTS `IX_Packages_Name` ON `Packages` (`Name`)", "Ensured Packages.Name index");
-                await TryAlter("ALTER TABLE `Packages` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Packages.Id AUTO_INCREMENT");
-                await TryAlter("ALTER TABLE `Users` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Users.Id AUTO_INCREMENT");
-                await TryAlter("ALTER TABLE `PackageReviews` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured PackageReviews.Id AUTO_INCREMENT");
+                // AUTO_INCREMENT fix — only if column is NOT already auto_increment (expensive table rebuild on HDD)
+                try
+                {
+                    using var ac = new MySqlConnector.MySqlConnection(connStrForAlter);
+                    await ac.OpenAsync();
+                    using var acmd = ac.CreateCommand();
+                    acmd.CommandText = "SELECT EXTRA FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'Packages' AND COLUMN_NAME = 'Id'";
+                    var extra = (await acmd.ExecuteScalarAsync())?.ToString();
+                    if (extra == null || !extra.Contains("auto_increment", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await TryAlter("ALTER TABLE `Packages` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Packages.Id AUTO_INCREMENT");
+                        await TryAlter("ALTER TABLE `Users` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Users.Id AUTO_INCREMENT");
+                        await TryAlter("ALTER TABLE `PackageReviews` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured PackageReviews.Id AUTO_INCREMENT");
+                    }
+                    else startupLogger.LogDebug("Id columns already AUTO_INCREMENT, skip ALTER");
+                }
+                catch (Exception ex) { startupLogger.LogDebug(ex, "AUTO_INCREMENT check failed, attempting ALTER anyway"); await TryAlter("ALTER TABLE `Packages` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Packages.Id AUTO_INCREMENT"); }
                 await dbContext.SeedDefaultCategoriesAsync();
                 startupLogger.LogInformation("MariaDB ready (attempt {Attempt}/{Max})", attempt, maxAttempts);
                 break;

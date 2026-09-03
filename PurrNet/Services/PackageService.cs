@@ -350,15 +350,8 @@ namespace Purrnet.Services
 
             // Truncate to avoid Data too long on existing DBs that still have varchar(255)
             string SafeTruncate(string? s, int max) => string.IsNullOrEmpty(s) ? string.Empty : s.Length <= max ? s : s.Substring(0, max);
-            // Workaround for corrupted DB where PackageReviews.Id is not AUTO_INCREMENT (seen in dboutput: Id NULL for ccl review) → Can't convert NULL to Int32
-            // Manually allocate Id so we don't rely on LAST_INSERT_ID()
-            int nextId = 1;
-            try { nextId = await _context.PackageReviews.AnyAsync() ? await _context.PackageReviews.MaxAsync(r => r.Id) + 1 : 1; } catch { nextId = new Random().Next(1000, 999999); }
-            // also clean any NULL Id rows that would block ALTER
-            try { await _context.Database.ExecuteSqlRawAsync("DELETE FROM `PackageReviews` WHERE `Id` IS NULL OR `Id` = 0"); } catch { }
             var review = new PackageReview
             {
-                Id = nextId,
                 PackageId = package.Id,
                 UserId = intUserId,
                 Rating = rating,
@@ -391,10 +384,10 @@ namespace Purrnet.Services
             if (!isAdmin && (userId == null || !int.TryParse(userId, out int intUserId) || review.UserId != intUserId)) return false;
             
             int pkgId = review.PackageId;
-            var pkg = await _context.Packages.FindAsync(pkgId);
             _context.PackageReviews.Remove(review);
             await _context.SaveChangesAsync();
             await RecalculateRatingAsync(pkgId);
+            var pkg = await _context.Packages.FindAsync(pkgId);
             if (pkg != null) InvalidatePackageCaches(pkg.Name);
             _cache.Remove("stats");
             return true;
@@ -402,12 +395,17 @@ namespace Purrnet.Services
 
         private async Task RecalculateRatingAsync(int packageId)
         {
-            var ratings = await _context.PackageReviews.Where(r => r.PackageId == packageId).Select(r => r.Rating).ToListAsync();
+            // Single query: count + avg, then update
+            var stats = await _context.PackageReviews
+                .Where(r => r.PackageId == packageId)
+                .GroupBy(r => r.PackageId)
+                .Select(g => new { Count = g.Count(), Avg = g.Average(r => r.Rating) })
+                .FirstOrDefaultAsync();
             var package = await _context.Packages.FindAsync(packageId);
             if (package != null)
             {
-                package.Rating = ratings.Count > 0 ? ratings.Average() : 0;
-                package.RatingCount = ratings.Count;
+                package.Rating = stats?.Avg ?? 0;
+                package.RatingCount = stats?.Count ?? 0;
                 await _context.SaveChangesAsync();
             }
         }
