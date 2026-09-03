@@ -12,6 +12,8 @@
 services:
   # Internal MariaDB — only started with --profile internal-db (for dev / CI)
   # Your prod server 192.168.0.180 already has MariaDB, so this is NOT used there.
+  # To run DB on a specific drive (your HDD is slow), set DB_DATA_HOST_PATH in .env to a path on the fast drive
+  # e.g. DB_DATA_HOST_PATH=/mnt/ssd/purrnet-db  or  DB_DATA_HOST_PATH=E:/purrnet-db
   db:
     image: mariadb:11
     restart: unless-stopped
@@ -22,7 +24,7 @@ services:
       MARIADB_USER: ${MARIADB_USER:-purrnet}
       MARIADB_PASSWORD: ${MARIADB_PASSWORD:-purrnet}
     volumes:
-      - db_data:/var/lib/mysql
+      - ${DB_DATA_HOST_PATH:-db_data}:/var/lib/mysql
     ports:
       - "${MARIADB_HOST_PORT:-3306}:3306"
     healthcheck:

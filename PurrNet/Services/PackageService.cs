@@ -272,15 +272,17 @@ namespace Purrnet.Services
             int? intUserId = null;
             if (userId != null && int.TryParse(userId, out int parsedUserId)) intUserId = parsedUserId;
 
+            // Truncate to avoid Data too long on existing DBs that still have varchar(255)
+            string SafeTruncate(string? s, int max) => string.IsNullOrEmpty(s) ? string.Empty : s.Length <= max ? s : s.Substring(0, max);
             var review = new PackageReview
             {
                 PackageId = package.Id,
                 UserId = intUserId,
                 Rating = rating,
-                Title = title,
-                Body = body,
-                ReviewerName = reviewerName,
-                ReviewerAvatarUrl = reviewerAvatarUrl ?? string.Empty,
+                Title = SafeTruncate(title, 500),
+                Body = SafeTruncate(body, 4000),
+                ReviewerName = SafeTruncate(reviewerName, 255),
+                ReviewerAvatarUrl = SafeTruncate(reviewerAvatarUrl, 2048),
                 CreatedAt = DateTime.UtcNow.ToString("O")
             };
             _context.PackageReviews.Add(review);

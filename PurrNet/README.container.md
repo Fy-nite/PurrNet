@@ -53,11 +53,35 @@ WantedBy=multi-user.target
 
 Then `systemctl enable --now purrnet`. The DB retry logic in `Program.cs` handles the 20-30s MariaDB warm-up after a power outage — no more segfault on boot.
 
+## Run on a specific drive (HDD slow → SSD)
+
+Your HDD is slow — put the DB (and optionally the whole Docker data) on the fast drive:
+
+**Option A — just the DB (recommended, via compose):**
+```bash
+# in .env, point to a directory on your fast drive
+DB_DATA_HOST_PATH=/mnt/ssd/purrnet-db   # Linux example
+# DB_DATA_HOST_PATH=E:/purrnet-db      # Windows example (use /mnt/e/... in WSL)
+mkdir -p /mnt/ssd/purrnet-db
+# if you have existing data in the named volume, copy it:
+# docker run --rm -v purrnet_db_data:/from -v /mnt/ssd/purrnet-db:/to alpine sh -c "cp -a /from/* /to/"
+docker compose up -d --build
+```
+Compose uses `${DB_DATA_HOST_PATH:-db_data}:/var/lib/mysql` — if `DB_DATA_HOST_PATH` is set it's a bind mount to that drive, otherwise it stays a named volume `db_data`.
+
+**Option B — whole Docker (images + volumes) on fast drive:**
+```json
+// /etc/docker/daemon.json
+{ "data-root": "/mnt/ssd/docker" }
+```
+Then `sudo systemctl restart docker`. This moves everything.
+
 ## Env overrides
 
 All secrets are env-driven, never baked into the image:
 - `MARIADB_CONNECTION_STRING` (preferred) or individual `MARIADB_*` vars in compose
 - `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — required for login
+- `DB_DATA_HOST_PATH` — host path for MariaDB data when using `--profile internal-db` (leave empty for default named volume)
 
 ## Troubleshooting
 

@@ -35,6 +35,11 @@ namespace Purrnet.Data
             modelBuilder.Entity<PackageReview>(entity =>
             {
                 entity.HasKey(e => e.Id);
+                // GitHub avatar URLs can exceed 255 chars (query strings) — use LONGTEXT to avoid Data too long
+                entity.Property(e => e.ReviewerAvatarUrl).HasColumnType("longtext");
+                entity.Property(e => e.Title).HasColumnType("longtext");
+                entity.Property(e => e.Body).HasColumnType("longtext");
+                entity.Property(e => e.ReviewerName).HasMaxLength(255);
             });
 
             modelBuilder.Entity<AdminActivityEntity>(entity =>

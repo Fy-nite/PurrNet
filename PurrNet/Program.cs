@@ -50,6 +50,15 @@ if (File.Exists("/.dockerenv") && connectionString.Contains("host.docker.interna
     Console.WriteLine($"[PurrNet] Using host DB via host.docker.internal: {connectionString.Split(';')[0]};...");
 }
 
+// HDD-slow / packet out-of-order fix: tune pooling and timeouts for MariaDB on spinning disk
+// Without this, MySqlConnector reuses a half-closed pooled connection after a slow query → "Packet out-of-order. Expected 1; got 3."
+if (!connectionString.Contains("ConnectionIdleTimeout", StringComparison.OrdinalIgnoreCase))
+    connectionString += ";ConnectionIdleTimeout=30;DefaultCommandTimeout=60";
+if (!connectionString.Contains("AllowPublicKeyRetrieval", StringComparison.OrdinalIgnoreCase))
+    connectionString += ";AllowPublicKeyRetrieval=true";
+if (!connectionString.Contains("SslMode", StringComparison.OrdinalIgnoreCase))
+    connectionString += ";SslMode=None";
+
 builder.Services.AddDbContext<PurrNetDbContext>(options =>
 {
     // Use a fixed ServerVersion to avoid a DB round-trip at startup (AutoDetect crashes when DB is still booting after power outage)
@@ -63,11 +72,12 @@ builder.Services.AddDbContext<PurrNetDbContext>(options =>
 
     options.UseMySql(connectionString, serverVersion, mySqlOpts =>
     {
+        // Retries help cold boot, but too many retries hold a bad pooled connection → packet out-of-order
         mySqlOpts.EnableRetryOnFailure(
-            maxRetryCount: 10,
-            maxRetryDelay: TimeSpan.FromSeconds(5),
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(2),
             errorNumbersToAdd: null);
-        mySqlOpts.CommandTimeout(30);
+        mySqlOpts.CommandTimeout(60);
     });
 });
 
@@ -347,6 +357,17 @@ startupLifetime.ApplicationStarted.Register(() =>
             {
                 var dbContext = scope.ServiceProvider.GetRequiredService<PurrNetDbContext>();
                 await dbContext.Database.EnsureCreatedAsync();
+                // Fixup for existing DBs created before 2026-09: avatar URLs could exceed varchar(255) → Data too long
+                try
+                {
+                    await dbContext.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE `PackageReviews` MODIFY COLUMN `ReviewerAvatarUrl` LONGTEXT NULL, MODIFY COLUMN `Title` LONGTEXT NULL, MODIFY COLUMN `Body` LONGTEXT NULL, MODIFY COLUMN `ReviewerName` VARCHAR(255) NULL");
+                    startupLogger.LogInformation("Ensured PackageReviews columns are LONGTEXT");
+                }
+                catch (Exception alterEx)
+                {
+                    startupLogger.LogDebug(alterEx, "PackageReviews ALTER skipped (already correct or table not yet created)");
+                }
                 await dbContext.SeedDefaultCategoriesAsync();
                 startupLogger.LogInformation("MariaDB ready (attempt {Attempt}/{Max})", attempt, maxAttempts);
                 break;
