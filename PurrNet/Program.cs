@@ -485,7 +485,7 @@ app.MapGet("/api/version", async (IConfiguration config) =>
     }
 });
 
-// /Latest — used by install.sh / install.ps1 to find the latest purr CLI version
+// /Latest — used by install.sh / install.ps1 to find the latest purr CLI version and download URL
 app.MapGet("/Latest", async () =>
 {
     try
@@ -494,12 +494,29 @@ app.MapGet("/Latest", async () =>
         client.DefaultRequestHeaders.Add("User-Agent", "PurrInstaller/1.0");
         var response = await client.GetStringAsync("https://api.github.com/repos/Fy-nite/PurrNet/releases/latest");
         var doc = JsonDocument.Parse(response);
-        var tag = doc.RootElement.GetProperty("tag_name").GetString();
-        return Results.Text(tag ?? "Unknown");
+        var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "Unknown";
+        var downloadUrl = "";
+        if (doc.RootElement.TryGetProperty("assets", out var assets) && assets.GetArrayLength() > 0)
+        {
+            // Prefer the .nupkg asset
+            foreach (var asset in assets.EnumerateArray())
+            {
+                var name = asset.GetProperty("name").GetString() ?? "";
+                if (name.EndsWith(".nupkg", StringComparison.OrdinalIgnoreCase))
+                {
+                    downloadUrl = asset.GetProperty("browser_download_url").GetString() ?? "";
+                    break;
+                }
+            }
+            // Fallback to first asset if no .nupkg found
+            if (string.IsNullOrEmpty(downloadUrl))
+                downloadUrl = assets[0].GetProperty("browser_download_url").GetString() ?? "";
+        }
+        return Results.Text($"{tag}\n{downloadUrl}");
     }
     catch
     {
-        return Results.Text("v1.0.0");
+        return Results.Text("v1.0.0\n");
     }
 });
 

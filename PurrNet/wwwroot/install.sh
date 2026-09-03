@@ -5,7 +5,6 @@ PURR_API_URL="https://purr.finite.ovh/Latest"
 REPO_OWNER="fy-nite"
 # package / tool id (adjust if your published package uses a different id)
 REPO_NAME="PurrNet"
-# TARGET_DIR="$HOME/.purr" # unused????
 
 check_cmd() {
   command -v "$1" >/dev/null 2>&1 || { echo "Required command '$1' not found. Please install it and retry." >&2; exit 1; }
@@ -24,39 +23,30 @@ get_latest_version() {
 
 download_and_install() {
   local version="$1"
+  local download_url="$2"
   local tmpdir
   tmpdir=$(mktemp -d)
   trap 'rm -rf "$tmpdir"' EXIT
 
-  # Try common nupkg asset name patterns
-  local pkgfile1="${REPO_NAME}.${version}.nupkg"
-  local pkgfile2="purr.${version}.nupkg"
-  local pkgfile3="${REPO_NAME}.v${version}.nupkg"
-  local tried=""
-  local pkgurl
-  local pkgpath
-  # https://github.com/Fy-nite/PurrNet/releases/download/v1.0.0/purr.1.0.0.nupkg
-  for pkg in "$pkgfile1" "$pkgfile2" "$pkgfile3"; do
-    pkgurl="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/v${version}/${pkg}"
-    pkgpath="$tmpdir/$pkg"
-    echo "Attempting to download ${pkgurl} ..."
-    if command -v curl >/dev/null 2>&1; then
-      if curl -L -f -o "$pkgpath" "$pkgurl" 2>/dev/null; then
-        echo "Downloaded $pkg"
-        break
-      fi
-    else
-      if wget -q -O "$pkgpath" "$pkgurl" 2>/dev/null; then
-        echo "Downloaded $pkg"
-        break
-      fi
-    fi
-    tried+="$pkg "
-  done
+  local pkgfile="purr.${version}.nupkg"
+  local pkgpath="$tmpdir/$pkgfile"
 
-  if [[ ! -f "$pkgpath" ]]; then
-    echo "Failed to download any nupkg (tried: $tried)" >&2
-    return 1
+  if [[ -n "$download_url" ]]; then
+    echo "Downloading $download_url ..."
+    if command -v curl >/dev/null 2>&1; then
+      curl -L -f -o "$pkgpath" "$download_url" || { echo "Failed to download." >&2; return 1; }
+    else
+      wget -q -O "$pkgpath" "$download_url" || { echo "Failed to download." >&2; return 1; }
+    fi
+  else
+    # Fallback: construct URL from version
+    local pkgurl="https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/v${version}/${pkgfile}"
+    echo "Attempting to download $pkgurl ..."
+    if command -v curl >/dev/null 2>&1; then
+      curl -L -f -o "$pkgpath" "$pkgurl" 2>/dev/null || { echo "Failed to download." >&2; return 1; }
+    else
+      wget -q -O "$pkgpath" "$pkgurl" 2>/dev/null || { echo "Failed to download." >&2; return 1; }
+    fi
   fi
 
   echo "Installing global tool from local nupkg source..."
@@ -76,11 +66,13 @@ install() {
     exit 1
   fi
 
-  local latest
-  latest=$(get_latest_version) || exit 1
-  latest=$(echo "$latest" | tr -d '\r\n' )
-  echo "Latest version: $latest"
-  download_and_install "$latest"
+  local response
+  response=$(get_latest_version) || exit 1
+  local version download_url
+  version=$(echo "$response" | head -1 | tr -d '\r\n')
+  download_url=$(echo "$response" | sed -n '2p' | tr -d '\r\n')
+  echo "Latest version: $version"
+  download_and_install "$version" "$download_url"
 }
 
 uninstall() {

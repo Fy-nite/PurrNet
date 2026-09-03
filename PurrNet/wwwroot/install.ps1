@@ -14,8 +14,9 @@ function Assert-Command {
 
 function Get-LatestVersion {
     try {
-        $resp = Invoke-RestMethod -Uri $PurrApiUrl -ErrorAction Stop
-        return $resp
+        $resp = Invoke-WebRequest -Uri $PurrApiUrl -ErrorAction Stop
+        $lines = ($resp.Content -split "`n") | ForEach-Object { $_.Trim() }
+        return @{ Version = $lines[0]; DownloadUrl = if ($lines.Count -gt 1) { $lines[1] } else { "" } }
     }
     catch {
         Write-Error "Failed to fetch latest version: $_"
@@ -24,7 +25,7 @@ function Get-LatestVersion {
 }
 
 function Download-And-Install {
-    param([string]$Version)
+    param([string]$Version, [string]$DownloadUrl)
 
     # Determine a safe temp directory base
     $baseTemp = $env:TEMP; if (-not $baseTemp) { $baseTemp = $env:TMP }
@@ -34,11 +35,8 @@ function Download-And-Install {
     New-Item -ItemType Directory -Path $tmpDir | Out-Null
 
     try {
-        $pkgFile1 = "$RepoName.$Version.nupkg"
-        $pkgFile2 = "purr.$Version.nupkg"
-        $pkgFile3 = "$RepoName.$Version.nupkg"
+        $pkgFile = "purr.$Version.nupkg"
         $pkgPath = $null
-        $tried = @()
 
         # Helper: download using available tool
         function Download-File($url, $outPath) {
@@ -54,15 +52,17 @@ function Download-And-Install {
             else { throw "No HTTP downloader available (Invoke-WebRequest, curl or wget)." }
         }
 
-        foreach ($pkg in @($pkgFile1, $pkgFile2, $pkgFile3)) {
-            $pkgUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/$Version/$pkg"
-            $out = Join-Path $tmpDir $pkg
-            $tried += $pkg
+        if ($DownloadUrl) {
+            Write-Host "Downloading $DownloadUrl ..."
+            $out = Join-Path $tmpDir $pkgFile
+            if (Download-File $DownloadUrl $out) { $pkgPath = $out }
+        }
+        else {
+            # Fallback: construct URL from version
+            $pkgUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/v$Version/$pkgFile"
             Write-Host "Attempting to download $pkgUrl ..."
-            try {
-                if (Download-File $pkgUrl $out) { $pkgPath = $out; break }
-            }
-            catch { }
+            $out = Join-Path $tmpDir $pkgFile
+            if (Download-File $pkgUrl $out) { $pkgPath = $out }
         }
 
         if (-not $pkgPath -or -not (Test-Path $pkgPath)) {
@@ -93,9 +93,10 @@ function Install-Purr {
     Assert-Command dotnet
     $latest = Get-LatestVersion
     if (-not $latest) { return }
-    $latest = $latest.ToString().Trim()
-    Write-Host "Latest version: $latest"
-    Download-And-Install -Version $latest | Out-Null
+    $version = $latest.Version.ToString().Trim()
+    $downloadUrl = $latest.DownloadUrl
+    Write-Host "Latest version: $version"
+    Download-And-Install -Version $version -DownloadUrl $downloadUrl | Out-Null
 }
 
 function Uninstall-Purr {
