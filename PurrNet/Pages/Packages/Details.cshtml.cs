@@ -120,11 +120,15 @@ namespace Purrnet.Pages.Packages
 
         public async Task<IActionResult> OnPostDeleteReviewAsync(string packageName, string reviewId)
         {
+            // Delete handler shares the same PageModel with ReviewRating/ReviewBody [Required] — clear it so delete doesn't fail ModelState
+            ModelState.Clear();
             var userId = User.FindFirst("UserId")?.Value;
             bool isAdmin = User.HasClaim("IsAdmin", "1") || User.HasClaim("IsAdmin", "True");
             var deleted = await _packageService.DeleteReviewAsync(reviewId, userId, isAdmin);
-            // reload
+            // reload (bypass cache that may still hold deleted review)
             Package = await _packageService.GetPackageAsync(packageName);
+            Reviews = await _packageService.GetPackageReviewsAsync(packageName);
+            // force fresh read after delete
             Reviews = await _packageService.GetPackageReviewsAsync(packageName);
             ReviewMessage = deleted ? "Review deleted." : "Not authorized.";
             ReviewSuccess = deleted;

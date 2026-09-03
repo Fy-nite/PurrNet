@@ -51,16 +51,14 @@ if (File.Exists("/.dockerenv") && connectionString.Contains("host.docker.interna
 }
 
 // HDD-slow / packet out-of-order fix: MariaDB on HDD + pipelining = "Packet out-of-order. Expected 1; got 3."
-// Keep pooling ON for speed (HDD still needs pooling), but force Pipelining=false and sane timeouts.
-// Pooling=false was too slow (new TCP+TLS per request). With 15-min cache below, pooling is safe.
+// Pooling=true is faster but reuses half-closed connections on slow HDD → packet error even with Pipelining=false.
+// Fix: keep Pooling=false for stability; 15-min cache (PackageService) makes it fast enough (first hit warms cache, next 15m are RAM).
 try
 {
     var csb = new MySqlConnector.MySqlConnectionStringBuilder(connectionString);
     csb.Pipelining = false;
-    csb.Pooling = true;
-    csb.MinimumPoolSize = 0;
-    csb.MaximumPoolSize = 20;
-    csb.ConnectionIdleTimeout = 30;
+    csb.Pooling = false;
+    csb.ConnectionIdleTimeout = 5;
     csb.DefaultCommandTimeout = 60;
     csb.AllowPublicKeyRetrieval = true;
     csb.SslMode = MySqlConnector.MySqlSslMode.None;
@@ -72,10 +70,10 @@ catch (Exception ex)
     if (!connectionString.Contains("Pipelining", StringComparison.OrdinalIgnoreCase))
         connectionString += ";Pipelining=false";
     if (!connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
-        connectionString += ";Pooling=true";
+        connectionString += ";Pooling=false";
 }
 
-Console.WriteLine($"[PurrNet] Final connecting string: {string.Join(";", connectionString.Split(';').Where(s => !s.ToLower().Contains("password") && !s.ToLower().Contains("pwd")))} (Pooling=true,Pipelining=false)");
+Console.WriteLine($"[PurrNet] Final connecting string: {string.Join(";", connectionString.Split(';').Where(s => !s.ToLower().Contains("password") && !s.ToLower().Contains("pwd")))} (Pooling=false,Pipelining=false,cached)");
 
 builder.Services.AddDbContext<PurrNetDbContext>(options =>
 {
