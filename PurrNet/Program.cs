@@ -372,6 +372,8 @@ startupLifetime.ApplicationStarted.Register(() =>
                     catch (Exception alterEx) { startupLogger.LogDebug(alterEx, "ALTER skipped: {Sql}", sql); }
                 }
                 await TryAlter("ALTER TABLE `PackageReviews` MODIFY COLUMN `ReviewerAvatarUrl` LONGTEXT NULL, MODIFY COLUMN `Title` LONGTEXT NULL, MODIFY COLUMN `Body` LONGTEXT NULL, MODIFY COLUMN `ReviewerName` VARCHAR(255) NULL", "Ensured PackageReviews columns are LONGTEXT");
+                // Clean corrupted row seen in dboutput: PackageReviews Id NULL (second review for ccl PackageId 9)
+                await TryAlter("DELETE FROM `PackageReviews` WHERE `Id` IS NULL OR `Id` = 0", "Cleaned NULL Id PackageReviews");
                 await TryAlter("ALTER TABLE `Packages` ADD COLUMN `IsLibrary` INT NOT NULL DEFAULT 0", "Added Packages.IsLibrary");
                 await TryAlter("ALTER TABLE `Packages` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Packages.Id AUTO_INCREMENT");
                 await TryAlter("ALTER TABLE `Users` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Users.Id AUTO_INCREMENT");
