@@ -42,8 +42,16 @@ public class PackageManager
         string legacy_path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".purr");
         if (Directory.Exists(legacy_path) && _purr_folder != legacy_path)
         {
-            Directory.Move(legacy_path, _purr_folder);
-            Directory.CreateSymbolicLink(legacy_path, _purr_folder);
+            if (Directory.Exists(_purr_folder))
+            {
+                // destination already exists — just delete the legacy folder
+                try { Directory.Delete(legacy_path, true); } catch { }
+            }
+            else
+            {
+                Directory.Move(legacy_path, _purr_folder);
+            }
+            try { Directory.CreateSymbolicLink(legacy_path, _purr_folder); } catch { }
         }
 
         _packagesDirectory = Path.Combine(_purr_folder, "packages");
