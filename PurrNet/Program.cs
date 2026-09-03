@@ -50,33 +50,32 @@ if (File.Exists("/.dockerenv") && connectionString.Contains("host.docker.interna
     Console.WriteLine($"[PurrNet] Using host DB via host.docker.internal: {connectionString.Split(';')[0]};...");
 }
 
-// HDD-slow / packet out-of-order fix: tune pooling and timeouts for MariaDB on spinning disk
-// Without this, MySqlConnector reuses a half-closed pooled connection after a slow query → "Packet out-of-order. Expected 1; got 3."
+// HDD-slow / packet out-of-order fix: MariaDB on HDD + MySqlConnector pooling = "Packet out-of-order. Expected 1; got 3."
+// Root cause is pooled connection reused after server closed it (wait_timeout / slow disk) and pipelining left unread payload.
+// Fix: disable pipelining, disable pooling (each request gets fresh connection — tiny cost for low-traffic PurrNet), and don't AutoDetect version at startup.
+if (!connectionString.Contains("Pipelining", StringComparison.OrdinalIgnoreCase))
+    connectionString += ";Pipelining=false";
+if (!connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
+    connectionString += ";Pooling=false";
 if (!connectionString.Contains("ConnectionIdleTimeout", StringComparison.OrdinalIgnoreCase))
-    connectionString += ";ConnectionIdleTimeout=30;DefaultCommandTimeout=60";
+    connectionString += ";ConnectionIdleTimeout=5";
+if (!connectionString.Contains("DefaultCommandTimeout", StringComparison.OrdinalIgnoreCase))
+    connectionString += ";DefaultCommandTimeout=60";
 if (!connectionString.Contains("AllowPublicKeyRetrieval", StringComparison.OrdinalIgnoreCase))
     connectionString += ";AllowPublicKeyRetrieval=true";
 if (!connectionString.Contains("SslMode", StringComparison.OrdinalIgnoreCase))
     connectionString += ";SslMode=None";
 
+Console.WriteLine($"[PurrNet] Final connecting string: {string.Join(";", connectionString.Split(';').Where(s => !s.ToLower().Contains("password")))}");
+
 builder.Services.AddDbContext<PurrNetDbContext>(options =>
 {
-    // Use a fixed ServerVersion to avoid a DB round-trip at startup (AutoDetect crashes when DB is still booting after power outage)
+    // Fixed ServerVersion — never AutoDetect at startup (that opens a throwaway connection that can poison the pool)
     var serverVersion = ServerVersion.Parse("11.4.0-mariadb");
-    try
-    {
-        // Best-effort auto-detect only if DB is already reachable — never throw here
-        serverVersion = ServerVersion.AutoDetect(connectionString);
-    }
-    catch { /* keep fallback */ }
 
     options.UseMySql(connectionString, serverVersion, mySqlOpts =>
     {
-        // Retries help cold boot, but too many retries hold a bad pooled connection → packet out-of-order
-        mySqlOpts.EnableRetryOnFailure(
-            maxRetryCount: 3,
-            maxRetryDelay: TimeSpan.FromSeconds(2),
-            errorNumbersToAdd: null);
+        // No EnableRetryOnFailure — retrying a packet out-of-order just reuses the same bad pooled session
         mySqlOpts.CommandTimeout(60);
     });
 });
