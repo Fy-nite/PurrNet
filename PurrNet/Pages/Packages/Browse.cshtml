@@ -1,0 +1,155 @@
+﻿@page
+@model Purrnet.Pages.Packages.BrowseModel
+@{
+    ViewData["Title"] = "Browse Packages";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-grid-3x3-gap"></i> Browse Packages</h1>
+    <div class="dropdown">
+        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            Sort by @(Model.SortBy switch { 
+                "mostDownloads" => "Most Downloads", 
+                "leastDownloads" => "Least Downloads",
+                "recentlyUpdated" => "Recently Updated",
+                "recentlyUploaded" => "Recently Uploaded",
+                "oldestUpdated" => "Oldest Updated",
+                "oldestUploaded" => "Oldest Uploaded",
+                _ => "Name" 
+            })
+        </button>
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="?sortBy=name&search=@Model.SearchQuery">Name</a></li>
+            <li><a class="dropdown-item" href="?sortBy=mostDownloads&search=@Model.SearchQuery">Most Downloads</a></li>
+            <li><a class="dropdown-item" href="?sortBy=leastDownloads&search=@Model.SearchQuery">Least Downloads</a></li>
+            <li><a class="dropdown-item" href="?sortBy=recentlyUpdated&search=@Model.SearchQuery">Recently Updated</a></li>
+            <li><a class="dropdown-item" href="?sortBy=recentlyUploaded&search=@Model.SearchQuery">Recently Uploaded</a></li>
+            <li><a class="dropdown-item" href="?sortBy=oldestUpdated&search=@Model.SearchQuery">Oldest Updated</a></li>
+            <li><a class="dropdown-item" href="?sortBy=oldestUploaded&search=@Model.SearchQuery">Oldest Uploaded</a></li>
+        </ul>
+    </div>
+</div>
+
+<!-- Search bar -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <form method="get" class="d-flex">
+            <input type="hidden" name="sortBy" value="@Model.SortBy" />
+            <input type="text" name="search" class="form-control me-2" placeholder="Search packages..." value="@Model.SearchQuery" />
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i> Search
+            </button>
+        </form>
+    </div>
+    @if (!string.IsNullOrEmpty(Model.SearchQuery))
+    {
+        <div class="col-md-6">
+            <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle"></i>
+                Showing results for: <strong>@Model.SearchQuery</strong>
+                <a href="?sortBy=@Model.SortBy" class="btn btn-sm btn-outline-secondary ms-2">Clear</a>
+            </div>
+        </div>
+    }
+</div>
+
+@if (Model.SearchResult != null && Model.SearchResult.TotalCount > 0)
+{
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        Found @Model.SearchResult.TotalCount package(s)
+    </div>
+}
+
+<div class="row">
+    @if (!Model.Packages.Any())
+    {
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="bi bi-search display-1 text-muted"></i>
+                <h3 class="mt-3">No packages found</h3>
+                <p class="text-muted">Try adjusting your search criteria.</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var package in Model.Packages)
+        {
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h5 class="card-title mb-0">
+                                <a href="/Packages/Details/@package.Name" class="text-decoration-none">@package.Name</a>
+                            </h5>
+                            <span class="badge bg-secondary">v @package.Version</span>
+                        </div>
+                        <p class="text-muted small mb-2">
+                            by @(package.AuthorsList.Any() ? string.Join(", ", package.AuthorsList) : "Unknown")
+                        </p>
+                        <p class="card-text">@package.Description</p>
+                        @if (package.CategoriesList.Any())
+                        {
+                            <div class="mb-2">
+                                @foreach (var category in package.CategoriesList.Take(2))
+                                {
+                                    <span class="badge bg-primary me-1">@category</span>
+                                }
+                                @if (package.CategoriesList.Count > 2)
+                                {
+                                    <span class="text-muted small">+@(package.CategoriesList.Count - 2) more</span>
+                                }
+                            </div>
+                        }
+                        @if (package.KeywordsList.Any())
+                        {
+                            <div class="mb-3">
+                                @foreach (var keyword in package.KeywordsList.Take(3))
+                                {
+                                    <span class="badge bg-light text-dark me-1">@keyword</span>
+                                }
+                                @if (package.KeywordsList.Count > 3)
+                                {
+                                    <span class="text-muted small">+@(package.KeywordsList.Count - 3) more</span>
+                                }
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(package.Homepage))
+                        {
+                            <div class="mb-2">
+                                <a href="@package.Homepage" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-house"></i> Homepage
+                                </a>
+                                @if (!string.IsNullOrEmpty(package.IssueTracker))
+                                {
+                                    <a href="@package.IssueTracker" target="_blank" class="btn btn-sm btn-outline-secondary ms-1">
+                                        <i class="bi bi-bug"></i> Issues
+                                    </a>
+                                }
+                            </div>
+                        }
+                        <div class="d-flex justify-content-between align-items-center text-muted small">
+                            <span><i class="bi bi-download"></i> @package.Downloads.ToString("N0")</span>
+                            <span><i class="bi bi-clock"></i> @package.LastUpdatedDateTime.ToString("MMM dd, yyyy")</span>
+                        </div>
+                        @if (string.IsNullOrEmpty(package.MainFile))
+                        {
+                            <div class="mt-1"><span class="badge bg-danger">Missing MainFile</span></div>
+                        }
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <code class="text-primary">purr install @package.Name</code>
+                        @if (package.DependenciesList.Any())
+                        {
+                            <small class="d-block mt-1 text-muted">
+                                Dependencies: @string.Join(", ", package.DependenciesList.Take(3))
+                                @if (package.DependenciesList.Count > 3) { <text>...</text> }
+                            </small>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>

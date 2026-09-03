@@ -25,6 +25,21 @@
                             <i class="bi bi-github"></i> Sign in with GitHub
                         </button>
                     </form>
+
+                    @if (Model.AllowDevLogin)
+                    {
+                        <hr class="my-4" />
+                        <div class="alert alert-warning text-start small mb-3" role="alert">
+                            <i class="bi bi-tools"></i> <strong>Dev mode</strong> — GitHub is bypassed locally. This button only appears when the app is <em>not</em> published (Development/Staging). Never shown in Production.
+                        </div>
+                        <form method="post" asp-page-handler="Dev">
+                            <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+                            <button type="submit" class="btn btn-outline-warning btn-lg w-100">
+                                <i class="bi bi-person-gear"></i> Continue as Dev (local admin)
+                            </button>
+                        </form>
+                        <div class="text-muted small mt-2">Creates/uses local user <code>Dev</code> with admin rights — no GitHub required.</div>
+                    }
                     
                     <div class="mt-4">
                         <small class="text-muted">

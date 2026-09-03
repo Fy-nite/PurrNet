@@ -1,22 +1,15 @@
 ﻿@page
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Install - PurrNet</title>
-    <meta name="description" content="Install Purr using the hosted installer scripts (recommended)." />
-    <meta name="keywords" content="Purr, install, installer, script, PowerShell, shell" />
+@model Purrnet.Pages.DownloadModel
+@{
+    ViewData["Title"] = "Install - PurrNet";
+    ViewData["MetaDescription"] = "Install Purr using the hosted installer scripts (recommended).";
+}
 
-    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="/css/site.css" />
-    <link rel="stylesheet" href="/Purrnet.styles.css" />
-</head>
-<body>
-   
-    <script>window.Purr = { pathBase: '' };</script>
-    <script>
+@section Head {
+    <meta name="keywords" content="Purr, install, installer, script, PowerShell, shell" />
+}
+
+<script>
         document.addEventListener("DOMContentLoaded", function() {
             const basePath = (window.Purr && window.Purr.pathBase) ? window.Purr.pathBase : '';
             const origin = (window.location && window.location.origin) ? window.location.origin.replace(/\/$/, '') : '';
@@ -137,8 +130,8 @@
     </div>
 
 
-    <script src="/lib/jquery/dist/jquery.min.js"></script>
-    <script src="/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="/js/site.js"></script>
-</body>
-</html>
+@section Scripts {
+    <script>
+        // Download page copy helpers are in the DOMContentLoaded above — no extra deps needed
+    </script>
+}

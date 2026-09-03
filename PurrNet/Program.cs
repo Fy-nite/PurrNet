@@ -32,14 +32,30 @@ builder.Services.AddControllers();
 var basePath = builder.Configuration.GetValue<string>("BasePath") ?? "/";
 var trustForwardHeaders = builder.Configuration.GetValue<bool>("TrustForwardHeaders", true);
 
-// Add MariaDB
+// Add MariaDB — with retry for container cold-start / power outage recovery
 var connectionString = Environment.GetEnvironmentVariable("MARIADB_CONNECTION_STRING") 
     ?? builder.Configuration.GetConnectionString("MariaDB") 
     ?? "Server=localhost;Database=PurrNet;User=purrnet;Password=purrnet;";
 
 builder.Services.AddDbContext<PurrNetDbContext>(options =>
 {
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString));
+    // Use a fixed ServerVersion to avoid a DB round-trip at startup (AutoDetect crashes when DB is still booting after power outage)
+    var serverVersion = ServerVersion.Parse("11.4.0-mariadb");
+    try
+    {
+        // Best-effort auto-detect only if DB is already reachable — never throw here
+        serverVersion = ServerVersion.AutoDetect(connectionString);
+    }
+    catch { /* keep fallback */ }
+
+    options.UseMySql(connectionString, serverVersion, mySqlOpts =>
+    {
+        mySqlOpts.EnableRetryOnFailure(
+            maxRetryCount: 10,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorNumbersToAdd: null);
+        mySqlOpts.CommandTimeout(30);
+    });
 });
 
 // Configure Forwarded Headers for proxy
@@ -54,6 +70,10 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.Services.AddScoped<IPackageService, PackageService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
+
+// Dev vs published: dev (unpublished) runs on http://localhost without TLS — cookies must not require Secure there
+var isPublished = builder.Environment.IsProduction();
+var cookieSecure = isPublished ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
 
 // Configure authentication
 builder.Services.AddAuthentication(options =>
@@ -71,7 +91,7 @@ builder.Services.AddAuthentication(options =>
     options.Cookie.Name = ".AspNetCore.PurrNet.Auth";
     options.Cookie.Path = basePath;
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = cookieSecure;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Events.OnSigningOut = async context =>
     {
@@ -115,7 +135,7 @@ builder.Services.AddAuthentication(options =>
     options.CorrelationCookie.Name = ".AspNetCore.PurrNet.Correlation";
     options.CorrelationCookie.Path = basePath;
     options.CorrelationCookie.SameSite = SameSiteMode.Lax;
-    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.CorrelationCookie.SecurePolicy = cookieSecure;
     options.CorrelationCookie.HttpOnly = true;
     options.CorrelationCookie.Expiration = TimeSpan.FromMinutes(15);
     
@@ -238,7 +258,7 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromMinutes(30);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = cookieSecure;
 });
 
 // Add TestingModeService
@@ -297,21 +317,40 @@ if (trustForwardHeaders)
     });
 }
 
-// Seed default categories on startup
-using (var scope = app.Services.CreateScope())
+// Seed default categories — background retry so power-outage / DB-late boots don't block startup (fixes systemd segfault on cold boot & keeps login page responsive)
+var startupLifetime = app.Services.GetRequiredService<IHostApplicationLifetime>();
+startupLifetime.ApplicationStarted.Register(() =>
 {
-    var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
-    var dbContext = scope.ServiceProvider.GetRequiredService<PurrNetDbContext>();
-    try
+    _ = Task.Run(async () =>
     {
-        await dbContext.SeedDefaultCategoriesAsync();
-        startupLogger.LogInformation("MariaDB ready");
-    }
-    catch (Exception ex)
-    {
-        startupLogger.LogError(ex, "MariaDB startup initialization failed");
-    }
-}
+        // Brief delay to let MariaDB healthcheck pass in compose
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        using var scope = app.Services.CreateScope();
+        var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup");
+        const int maxAttempts = 15;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                var dbContext = scope.ServiceProvider.GetRequiredService<PurrNetDbContext>();
+                await dbContext.Database.EnsureCreatedAsync();
+                await dbContext.SeedDefaultCategoriesAsync();
+                startupLogger.LogInformation("MariaDB ready (attempt {Attempt}/{Max})", attempt, maxAttempts);
+                break;
+            }
+            catch (Exception ex)
+            {
+                if (attempt == maxAttempts)
+                    startupLogger.LogError(ex, "MariaDB startup initialization failed after {Max} attempts — health will report degraded", maxAttempts);
+                else
+                {
+                    startupLogger.LogWarning(ex, "MariaDB not ready (attempt {Attempt}/{Max}) — retrying in 4s...", attempt, maxAttempts);
+                    await Task.Delay(TimeSpan.FromSeconds(4));
+                }
+            }
+        }
+    });
+});
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -332,8 +371,21 @@ app.UseAuthorization();
 app.MapRazorPages();
 app.MapControllers();
 
-// Health check endpoint
-app.MapGet("/health", () => Results.Ok(new { status = "Healthy", database = "MariaDB" }));
+// Health check — actually probes DB so container HEALTHCHECK + load balancer see real readiness
+app.MapGet("/health", async (PurrNetDbContext db) =>
+{
+    try
+    {
+        var canConnect = await db.Database.CanConnectAsync();
+        return canConnect
+            ? Results.Ok(new { status = "Healthy", database = "MariaDB" })
+            : Results.Json(new { status = "Degraded", database = "unreachable" }, statusCode: 503);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { status = "Unhealthy", database = "error", detail = ex.Message }, statusCode: 503);
+    }
+});
 
 // Minimal version info API for the CLI
 app.MapGet("/api/version", async (IConfiguration config) =>

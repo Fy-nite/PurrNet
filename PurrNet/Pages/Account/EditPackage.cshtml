@@ -88,6 +88,12 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label fw-semibold">Main File <span class="text-danger">* required for install</span></label>
+                                <input type="text" name="MainFile" class="form-control" value="@Model.Package.MainFile" required placeholder="myapp or bin/myapp" />
+                                <div class="form-text">Symlink target inside release zip/repo — without this <code>purr install</code> fails.</div>
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label fw-semibold">Dependencies <span class="text-muted">(comma-separated)</span></label>
                                 <input type="text" name="Dependencies" class="form-control" value="@string.Join(", ", Model.Package.DependenciesList)" />
                             </div>

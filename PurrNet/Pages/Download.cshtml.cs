@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-namespace purrnet.Pages
+namespace Purrnet.Pages
 {
     public class DownloadModel : PageModel
     {

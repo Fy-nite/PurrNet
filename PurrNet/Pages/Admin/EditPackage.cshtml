@@ -65,6 +65,12 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label fw-semibold">Main File <span class="text-danger">* required for install</span></label>
+                                <input type="text" name="MainFile" class="form-control" value="@Model.Package.MainFile" required placeholder="myapp" />
+                                <div class="form-text">Symlink target — required or <code>purr install</code> has no binary.</div>
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label fw-semibold">Dependencies <span class="text-muted">(comma-separated)</span></label>
                                 <input type="text" name="Dependencies" class="form-control" value="@string.Join(", ", Model.Package.DependenciesList)" />
                             </div>

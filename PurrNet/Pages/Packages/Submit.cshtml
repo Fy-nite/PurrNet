@@ -1,0 +1,178 @@
+﻿@page
+@model Purrnet.Pages.Packages.SubmitModel
+@{
+    ViewData["Title"] = "Submit Package";
+}
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}
+
+<h1><i class="bi bi-plus-circle"></i> Submit New Package</h1>
+<p class="text-muted mb-4">Share your package with the Purr community</p>
+
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <div class="alert @(Model.IsSuccess ? "alert-success" : "alert-danger")" role="alert">
+        <i class="bi @(Model.IsSuccess ? "bi-check-circle" : "bi-exclamation-triangle")"></i> @Model.Message
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <form method="post">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Package Information (Purrconfig.json)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label asp-for="PackageName" class="form-label"></label>
+                            <input asp-for="PackageName" class="form-control" placeholder="my-awesome-package">
+                            <span asp-validation-for="PackageName" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="Version" class="form-label"></label>
+                            <input asp-for="Version" class="form-control" placeholder="1.0.0">
+                            <span asp-validation-for="Version" class="text-danger"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Authors" class="form-label"></label>
+                        <input asp-for="Authors" class="form-control" placeholder="Author One, Author Two">
+                        <div class="form-text">Separate multiple authors with commas</div>
+                        <span asp-validation-for="Authors" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label"></label>
+                        <textarea asp-for="Description" class="form-control" rows="3" placeholder="Brief description of your package"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="ReadmeUrl" class="form-label"></label>
+                        <input asp-for="ReadmeUrl" class="form-control" type="url" placeholder="https://github.com/user/repo/blob/main/README.md">
+                        <div class="form-text">Link to your package's README file</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Git" class="form-label"></label>
+                        <input asp-for="Git" class="form-control" type="url" placeholder="https://git.example.com/user/repo.git">
+                        <span asp-validation-for="Git" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="Homepage" class="form-label"></label>
+                            <input asp-for="Homepage" class="form-control" type="url" placeholder="https://example.com">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="IssueTracker" class="form-label"></label>
+                            <input asp-for="IssueTracker" class="form-control" type="url" placeholder="https://github.com/user/repo/issues">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Keywords" class="form-label"></label>
+                        <input asp-for="Keywords" class="form-control" placeholder="cli, utility, development">
+                        <div class="form-text">Keywords to help users find your package (optional)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Categories" class="form-label"></label>
+                        <input asp-for="Categories" class="form-control" placeholder="web-development, frameworks, utilities">
+                        <div class="form-text">Categories to organize your package (optional)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Installer" class="form-label"></label>
+                        <input asp-for="Installer" class="form-control" placeholder="install.sh">
+                        <div class="form-text">Script that runs during installation (optional)</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="MainFile" class="form-label"></label>
+                        <input asp-for="MainFile" class="form-control" placeholder="myapp or myapp.exe" required>
+                        <div class="form-text"><i class="bi bi-exclamation-triangle text-warning"></i> <strong>Required for install.</strong> File inside the release zip / repo to symlink to <code>~/.local/share/purr/bin</code> (e.g. <code>myapp</code>, <code>myapp.exe</code>, <code>bin/myapp</code>). Without this <code>purr install</code> has no symlink target.</div>
+                        <span asp-validation-for="MainFile" class="text-danger"></span>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="IconUrl" class="form-label"></label>
+                            <input asp-for="IconUrl" class="form-control" type="url" placeholder="https://example.com/icon.png">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="License" class="form-label"></label>
+                            <input asp-for="License" class="form-control" placeholder="MIT">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="SupportedPlatforms" class="form-label"></label>
+                        <input asp-for="SupportedPlatforms" class="form-control" placeholder="linux, windows, osx">
+                        <div class="form-text">Comma-separated (e.g. <code>linux, windows, macos</code>)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Dependencies" class="form-label"></label>
+                        <input asp-for="Dependencies" class="form-control" placeholder="make@latest, gcc@1.0.0">
+                        <div class="form-text">Format: package@version, separate with commas (leave empty if no dependencies)</div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> Submit Package
+                    </button>
+                    <a href="/Packages/Browse" class="btn btn-secondary">Cancel</a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">Authentication Required</h6>
+            </div>
+            <div class="card-body">
+                <p class="small mb-2">
+                    <i class="bi bi-person-check text-success"></i> 
+                    Logged in as: <strong>@User.Identity?.Name</strong>
+                </p>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">Required Fields</h6>
+            </div>
+            <div class="card-body">
+                <ul class="small">
+                    <li><strong>Name:</strong> No spaces allowed</li>
+                    <li><strong>Version:</strong> x.y.z format required</li>
+                    <li><strong>Authors:</strong> At least one author required</li>
+                    <li><strong>Git:</strong> Repository URL for package download</li>
+                    <li><strong>Main File:</strong> Executable to symlink — <em>required</em> or install fails</li>
+                </ul>
+                <p class="small mt-3 mb-0">Main File is what <code>purr install</code> links to <code>bin/</code>.</p>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">Optional Fields</h6>
+            </div>
+            <div class="card-body">
+                <ul class="small">
+                    <li><strong>Dependencies:</strong> Leave empty if your package has no dependencies</li>
+                    <li><strong>Keywords:</strong> Help users discover your package</li>
+                    <li><strong>Categories:</strong> Organize your package by type</li>
+                    <li><strong>Installer:</strong> Custom installation script</li>
+                    <li><strong>Homepage/Issues:</strong> Project links</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

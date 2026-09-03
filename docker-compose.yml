@@ -1,0 +1,74 @@
+# PurrNet — one-command container hosting
+# Survives power outages / cold boots: restart policies + healthcheck + DB retry in Program.cs
+# YOUR SERVER (192.168.0.180) already runs MariaDB on the host — use host DB by default.
+# Usage:
+#   cp .env.example .env   # set GITHUB_CLIENT_ID/SECRET, set MARIADB_* to match host DB
+#   docker compose up -d --build          # uses host MariaDB at 192.168.0.180 (or host.docker.internal)
+#   docker compose logs -f purrnet
+# API stays at http://192.168.0.180:8080 — purr CLI keeps working at that URL
+#
+# Self-contained dev (no host DB):  docker compose --profile internal-db up -d --build
+
+services:
+  # Internal MariaDB — only started with --profile internal-db (for dev / CI)
+  # Your prod server 192.168.0.180 already has MariaDB, so this is NOT used there.
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    profiles: ["internal-db"]
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-purrnet-root}
+      MARIADB_DATABASE: ${MARIADB_DATABASE:-PurrNet}
+      MARIADB_USER: ${MARIADB_USER:-purrnet}
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-purrnet}
+    volumes:
+      - db_data:/var/lib/mysql
+    ports:
+      - "${MARIADB_HOST_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - purrnet
+
+  purrnet:
+    build:
+      context: .
+      dockerfile: PurrNet/Dockerfile
+    restart: unless-stopped
+    # If internal-db profile is active, wait for db to be healthy; otherwise start immediately against host DB
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      # If MARIADB_CONNECTION_STRING is set in .env it wins; otherwise build from individual vars against host DB
+      # Host DB is 192.168.0.180 (your server). host.docker.internal resolves to host via extra_hosts.
+      MARIADB_CONNECTION_STRING: ${MARIADB_CONNECTION_STRING:-Server=${MARIADB_HOST:-192.168.0.180};Database=${MARIADB_DATABASE:-PurrNet};User=${MARIADB_USER:-purrnet};Password=${MARIADB_PASSWORD:-purrnet};}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      BasePath: ${BASE_PATH:-/}
+      TrustForwardHeaders: "true"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${PURRNET_HOST_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    networks:
+      - purrnet
+
+volumes:
+  db_data:
+
+networks:
+  purrnet:
+    driver: bridge

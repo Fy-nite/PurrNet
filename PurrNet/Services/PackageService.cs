@@ -53,11 +53,20 @@ namespace Purrnet.Services
                 LicenseUrl = purrConfig.LicenseUrl,
                 Keywords = JsonSerializer.Serialize(purrConfig.Keywords),
                 Categories = JsonSerializer.Serialize(purrConfig.Categories),
+                Homepage = purrConfig.Homepage,
+                IssueTracker = purrConfig.IssueTracker,
                 Git = purrConfig.Git,
+                Installer = purrConfig.Installer,
+                Dependencies = JsonSerializer.Serialize(purrConfig.Dependencies),
+                IconUrl = purrConfig.IconUrl,
+                MainFile = purrConfig.MainFile,
+                InstallCommand = $"purr install {purrConfig.Name}",
                 OwnerId = ownerId != null ? int.Parse(ownerId) : null,
                 CreatedAt = DateTime.UtcNow.ToString("O"),
                 LastUpdated = DateTime.UtcNow.ToString("O"),
-                IsActive = 1
+                IsActive = 1,
+                CreatedBy = createdBy,
+                UpdatedBy = createdBy
             };
             _context.Packages.Add(package);
             await _context.SaveChangesAsync();
@@ -76,9 +85,24 @@ namespace Purrnet.Services
             
             package.Version = purrConfig.Version;
             package.Authors = JsonSerializer.Serialize(purrConfig.Authors);
+            package.SupportedPlatforms = JsonSerializer.Serialize(purrConfig.SupportedPlatforms);
+            package.Description = purrConfig.Description;
+            package.ReadmeUrl = purrConfig.ReadmeUrl;
+            package.License = purrConfig.License;
+            package.LicenseUrl = purrConfig.LicenseUrl;
             package.Categories = JsonSerializer.Serialize(purrConfig.Categories);
             package.Keywords = JsonSerializer.Serialize(purrConfig.Keywords);
+            package.Homepage = purrConfig.Homepage;
+            package.IssueTracker = purrConfig.IssueTracker;
+            package.Git = purrConfig.Git;
+            package.Installer = purrConfig.Installer;
+            package.Dependencies = JsonSerializer.Serialize(purrConfig.Dependencies);
+            package.IconUrl = purrConfig.IconUrl;
+            package.MainFile = string.IsNullOrWhiteSpace(purrConfig.MainFile) ? package.MainFile : purrConfig.MainFile;
             package.LastUpdated = DateTime.UtcNow.ToString("O");
+            package.UpdatedBy = updatedBy;
+            // Keep InstallCommand in sync with name
+            package.InstallCommand = $"purr install {package.Name}";
             
             await _context.SaveChangesAsync();
             return true;

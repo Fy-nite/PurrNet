@@ -1,27 +1,45 @@
+# Build args — only defaults, override at run via env or compose
 ARG GITHUB_CLIENT_ID=your-github-client-id-here
 ARG GITHUB_CLIENT_SECRET=your-github-client-secret-here
-ARG CONNECTION_STRING="Data Source=Purrnet.db"
-ARG ASPNETCORE_ENVIRONMENT=Development
+ARG ASPNETCORE_ENVIRONMENT=Production
 
+# ---- build stage ----
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-WORKDIR PurrNet
-
-# Copy project files and restore
-COPY . ./
-RUN dotnet restore "purrnet.csproj"
-
-# Publish
 WORKDIR /src
-RUN dotnet publish "purrnet.csproj" -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+# Copy csproj first for better layer caching (supports both repo-root and PurrNet-folder contexts)
+COPY PurrNet/purrnet.csproj ./PurrNet/
+# Fallback: if build context is already PurrNet/, the above misses — also try direct copy
+COPY purrnet.csproj ./PurrNet/ 2>/dev/null || true
+RUN dotnet restore "PurrNet/purrnet.csproj"
+
+# Copy the rest of the PurrNet source
+COPY PurrNet/ ./PurrNet/
+# If context was PurrNet/ itself, the source is at /src/PurrNet/PurrNet — flatten it
+RUN if [ -d "PurrNet/PurrNet" ]; then cp -r PurrNet/PurrNet/* PurrNet/; fi
+
+WORKDIR /src/PurrNet
+RUN dotnet publish "purrnet.csproj" -c Release -o /app/publish --no-restore
+
+# ---- runtime stage ----
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080
+# curl is needed for HEALTHCHECK
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /app/publish ./
-# Expose build-time args as runtime environment variables (can be overridden at container run)
+
+# Runtime env (overridable at `docker run -e` or compose)
 ENV GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
 ENV GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
-ENV CONNECTION_STRING=${CONNECTION_STRING}
 ENV ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+# Default MariaDB string — override with MARIADB_CONNECTION_STRING in compose
+ENV MARIADB_CONNECTION_STRING="Server=db;Database=PurrNet;User=purrnet;Password=purrnet;"
+
 EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
+
 ENTRYPOINT ["dotnet", "purrnet.dll"]

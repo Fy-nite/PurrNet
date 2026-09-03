@@ -1,0 +1,209 @@
+﻿@page "/Packages/Edit/{packageName}"
+@model Purrnet.Pages.Packages.EditModel
+@{
+    ViewData["Title"] = $"Edit {Model.PackageName}";
+}
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1><i class="bi bi-pencil-square"></i> Edit Package</h1>
+        <p class="text-muted">Update information for <strong>@Model.PackageName</strong></p>
+    </div>
+    <div>
+        <a href="/Packages/Details/@Model.PackageName" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Package
+        </a>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <div class="alert @(Model.IsSuccess ? "alert-success" : "alert-danger")" role="alert">
+        <i class="bi @(Model.IsSuccess ? "bi-check-circle" : "bi-exclamation-triangle")"></i> @Model.Message
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <form method="post">
+            <input asp-for="PackageId" type="hidden" />
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Package Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label asp-for="PackageName" class="form-label"></label>
+                            <input asp-for="PackageName" class="form-control" readonly>
+                            <div class="form-text">Package name cannot be changed</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="Version" class="form-label"></label>
+                            <input asp-for="Version" class="form-control" placeholder="1.0.0">
+                            <span asp-validation-for="Version" class="text-danger"></span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Authors" class="form-label"></label>
+                        <input asp-for="Authors" class="form-control" placeholder="Author One, Author Two">
+                        <div class="form-text">Separate multiple authors with commas</div>
+                        <span asp-validation-for="Authors" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label"></label>
+                        <textarea asp-for="Description" class="form-control" rows="3" placeholder="Brief description of your package"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="SupportedPlatforms" class="form-label"></label>
+                        <input asp-for="SupportedPlatforms" class="form-control" placeholder="linux, macos, windows">
+                        <div class="form-text">Supported platforms (optional)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="ReadmeUrl" class="form-label"></label>
+                        <input asp-for="ReadmeUrl" class="form-control" type="url" placeholder="https://github.com/user/repo/blob/main/README.md">
+                        <div class="form-text">Link to your package's README file</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Git" class="form-label"></label>
+                        <input asp-for="Git" class="form-control" type="url" placeholder="https://git.example.com/user/repo.git">
+                        <span asp-validation-for="Git" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="Homepage" class="form-label"></label>
+                            <input asp-for="Homepage" class="form-control" type="url" placeholder="https://example.com">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="IssueTracker" class="form-label"></label>
+                            <input asp-for="IssueTracker" class="form-control" type="url" placeholder="https://github.com/user/repo/issues">
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="License" class="form-label"></label>
+                            <input asp-for="License" class="form-control" placeholder="MIT">
+                            <div class="form-text">License type (e.g., MIT, Apache-2.0)</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="LicenseUrl" class="form-label"></label>
+                            <input asp-for="LicenseUrl" class="form-control" type="url" placeholder="https://opensource.org/license/mit/">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Keywords" class="form-label"></label>
+                        <input asp-for="Keywords" class="form-control" placeholder="cli, utility, development">
+                        <div class="form-text">Keywords to help users find your package (optional)</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Installer" class="form-label"></label>
+                        <input asp-for="Installer" class="form-control" placeholder="install.sh">
+                        <div class="form-text">Script that runs during installation (optional)</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="MainFile" class="form-label"></label>
+                        <input asp-for="MainFile" class="form-control" placeholder="myapp" required>
+                        <div class="form-text"><strong>Required.</strong> Binary inside release to symlink to bin.</div>
+                        <span asp-validation-for="MainFile" class="text-danger"></span>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label asp-for="Dependencies" class="form-label"></label>
+                        <input asp-for="Dependencies" class="form-control" placeholder="make@latest, gcc@1.0.0">
+                        <div class="form-text">Format: package@version, separate with commas (leave empty if no dependencies)</div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle"></i> Update Package
+                    </button>
+                    <a href="/Packages/Details/@Model.PackageName" class="btn btn-secondary">Cancel</a>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <div class="col-md-4">
+        @if (Model.OriginalPackage != null)
+        {
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">Current Package Info</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row small">
+                        <dt class="col-sm-5">Created:</dt>
+                        <dd class="col-sm-7">@Model.OriginalPackage!.CreatedAtDateTime.ToString("MMM dd, yyyy")</dd>
+                        
+                        <dt class="col-sm-5">Last Updated:</dt>
+                        <dd class="col-sm-7">@Model.OriginalPackage.LastUpdatedDateTime.ToString("MMM dd, yyyy")</dd>
+                        
+                        <dt class="col-sm-5">Downloads:</dt>
+                        <dd class="col-sm-7">@Model.OriginalPackage.Downloads.ToString("N0")</dd>
+                        
+                        <dt class="col-sm-5">Views:</dt>
+                        <dd class="col-sm-7">@Model.OriginalPackage.ViewCount.ToString("N0")</dd>
+                        
+                        @if (!string.IsNullOrEmpty(Model.OriginalPackage.CreatedBy))
+                        {
+                            <dt class="col-sm-5">Created By:</dt>
+                            <dd class="col-sm-7">@Model.OriginalPackage.CreatedBy</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        }
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">Editing Guidelines</h6>
+            </div>
+            <div class="card-body">
+                <ul class="small">
+                    <li><strong>Package name cannot be changed</strong> after creation</li>
+                    <li>Update the version number when making significant changes</li>
+                    <li>Git repository URL should point to the latest code</li>
+                    <li>All URLs should be valid and accessible</li>
+                    <li>Keywords help users discover your package</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0">Permissions</h6>
+            </div>
+            <div class="card-body">
+                <p class="small mb-2">
+                    <i class="bi bi-person-check text-success"></i> 
+                    You can edit this package because you are:
+                </p>
+                <ul class="small">
+                    @if (User.HasClaim("IsAdmin", "True"))
+                    {
+                        <li><i class="bi bi-shield-check text-warning"></i> Administrator</li>
+                    }
+                    else
+                    {
+                        <li><i class="bi bi-person text-primary"></i> Package Owner</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

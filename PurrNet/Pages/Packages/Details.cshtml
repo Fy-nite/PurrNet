@@ -1,0 +1,316 @@
+﻿@page "/Packages/Details/{packageName}"
+@model Purrnet.Pages.Packages.DetailsModel
+@{
+    ViewData["Title"] = $"{Model.Package?.Name ?? "Package"} - Package Details";
+    if (Model.Package != null)
+    {
+        ViewData["MetaTitle"] = $"{Model.Package.Name} v{Model.Package.Version}";
+        ViewData["MetaDescription"] = !string.IsNullOrEmpty(Model.Package.Description) ? Model.Package.Description : $"Install {Model.Package.Name} using Purr package manager";
+        ViewData["MetaImage"] = $"{Request.Scheme}://{Request.Host}/images/package-preview.png";
+        ViewData["MetaUrl"] = $"{Request.Scheme}://{Request.Host}/Packages/Details/{Model.Package.Name}";
+        ViewData["MetaKeywords"] = string.Join(", ", Model.Package.KeywordsList);
+        ViewData["MetaAuthors"] = string.Join(", ", Model.Package.AuthorsList);
+        ViewData["MetaPackageName"] = Model.Package.Name;
+        ViewData["MetaPackageVersion"] = Model.Package.Version;
+        ViewData["MetaDownloads"] = Model.Package.Downloads.ToString("N0");
+        ViewData["MetaLastUpdated"] = Model.Package.LastUpdatedDateTime.ToString("yyyy-MM-dd");
+    }
+}
+
+@section Head {
+    @if (Model.Package != null)
+    {
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content="@ViewData["MetaTitle"]" />
+        <meta property="og:description" content="@ViewData["MetaDescription"]" />
+        <meta property="og:url" content="@ViewData["MetaUrl"]" />
+        <meta property="og:image" content="@ViewData["MetaImage"]" />
+        <meta property="og:site_name" content="PurrNet - Finite User Repository" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="@ViewData["MetaTitle"]" />
+        <meta name="twitter:description" content="@ViewData["MetaDescription"]" />
+        <meta name="twitter:image" content="@ViewData["MetaImage"]" />
+        <meta name="package:name" content="@ViewData["MetaPackageName"]" />
+        <meta name="package:version" content="@ViewData["MetaPackageVersion"]" />
+        <script type="application/ld+json">
+        {
+            "@@context": "https://schema.org",
+            "@@type": "SoftwareApplication",
+            "name": "@Model.Package!.Name",
+            "version": "@Model.Package.Version",
+            "description": "@Model.Package.Description",
+            "author": [@foreach(var author in Model.Package.AuthorsList) { <text>"@author"@(Model.Package.AuthorsList.Last() != author ? "," : "")</text> }],
+            "url": "@ViewData["MetaUrl"]",
+            "downloadUrl": "@Model.Package.Git",
+            "applicationCategory": "DeveloperApplication"
+        }
+        </script>
+    }
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        <i class="bi bi-exclamation-circle"></i> @Model.ErrorMessage
+    </div>
+}
+
+@if (Model.Package != null)
+{
+    <div class="row">
+        <div class="col-md-8">
+            <div class="d-flex align-items-center mb-3 flex-wrap gap-2">
+                <h1 class="me-2 mb-0">@Model.Package.Name</h1>
+                <span class="badge bg-primary fs-6">v @Model.Package.Version</span>
+                @if (Model.Package.RatingCount > 0)
+                {
+                    <span class="badge bg-warning text-dark"><i class="bi bi-star-fill"></i> @Model.Package.Rating.ToString("0.0") (@Model.Package.RatingCount)</span>
+                }
+                @{
+                    var userIdClaim = User.FindFirst("UserId");
+                    var isAdmin = User.HasClaim("IsAdmin", "1") || User.HasClaim("IsAdmin", "True");
+                    var canEdit = isAdmin || (User.Identity?.IsAuthenticated == true && userIdClaim != null && Model.Package.OwnerId != null && int.TryParse(userIdClaim.Value, out var uid) && uid == Model.Package.OwnerId);
+                }
+                @if (canEdit)
+                {
+                    <a href="/Packages/Edit/@Model.Package.Name" class="btn btn-outline-primary btn-sm ms-1"><i class="bi bi-pencil-square"></i> Edit</a>
+                }
+            </div>
+            
+            <p class="lead">@Model.Package.Description</p>
+            
+            <div class="mb-4">
+                <h6>Share this package:</h6>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-outline-primary" onclick="sharePackage('twitter')"><i class="bi bi-twitter"></i> Twitter</button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="sharePackage('copy')"><i class="bi bi-clipboard"></i> Copy Link</button>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <h5>Authors</h5>
+                <div>
+                    @foreach (var author in Model.Package.AuthorsList)
+                    {
+                        <span class="badge bg-secondary me-1">@author</span>
+                    }
+                </div>
+            </div>
+
+            @if (Model.Package.KeywordsList.Any())
+            {
+                <div class="mb-4">
+                    <h5>Keywords</h5>
+                    <div>
+                        @foreach (var keyword in Model.Package.KeywordsList)
+                        {
+                            <span class="badge bg-light text-dark me-1">@keyword</span>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (Model.Package.CategoriesList.Any())
+            {
+                <div class="mb-4">
+                    <h5>Categories</h5>
+                    <div>
+                        @foreach (var cat in Model.Package.CategoriesList)
+                        {
+                            <span class="badge bg-info me-1">@cat</span>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(Model.Package.ReadmeUrl))
+            {
+                <div class="mb-4">
+                    <h5>Documentation</h5>
+                    <a href="@Model.Package.ReadmeUrl" target="_blank" class="btn btn-outline-primary"><i class="bi bi-file-text"></i> View README</a>
+                </div>
+            }
+
+            @if (Model.Package.DependenciesList.Any())
+            {
+                <div class="mb-4">
+                    <h5>Dependencies</h5>
+                    <ul class="list-group">
+                        @foreach (var dependency in Model.Package.DependenciesList)
+                        {
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <a href="/Packages/Details/@dependency.Split('@')[0].Trim()"><code>@dependency</code></a>
+                                <span class="badge bg-info">Required</span>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            }
+
+            <!-- Reviews -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-star"></i> Reviews (@Model.Reviews.Count)</h5>
+                    @if (Model.Package.RatingCount > 0)
+                    {
+                        <span class="text-muted small">@Model.Package.Rating.ToString("0.0") avg</span>
+                    }
+                </div>
+                <div class="card-body">
+                    @if (Model.Reviews.Any())
+                    {
+                        @foreach (var r in Model.Reviews)
+                        {
+                            <div class="border-bottom pb-3 mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <strong>@r.ReviewerName</strong>
+                                    <span class="text-warning">@for(int i=0;i<r.Rating;i++){<i class="bi bi-star-fill"></i>}@for(int i=r.Rating;i<5;i++){<i class="bi bi-star"></i>}</span>
+                                </div>
+                                @if (!string.IsNullOrEmpty(r.Title)){<div class="fw-semibold">@r.Title</div>}
+                                <p class="mb-1">@r.Body</p>
+                                <small class="text-muted">@r.CreatedAtDateTime.ToString("MMM dd, yyyy")</small>
+                                @if (User.HasClaim("IsAdmin","1") || User.HasClaim("IsAdmin","True") || (User.FindFirst("UserId")?.Value == r.UserId?.ToString()))
+                                {
+                                    <form method="post" asp-page-handler="DeleteReview" asp-route-packageName="@Model.Package.Name" asp-route-reviewId="@r.Id" class="d-inline ms-2" onsubmit="return confirm('Delete review?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                                    </form>
+                                }
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted">No reviews yet. Be the first!</p>
+                    }
+
+                    <hr />
+                    <h6>Write a review</h6>
+                    @if (!string.IsNullOrEmpty(Model.ReviewMessage))
+                    {
+                        <div class="alert @(Model.ReviewSuccess ? "alert-success" : "alert-danger") py-2">@Model.ReviewMessage</div>
+                    }
+                    <form method="post" asp-page-handler="Review" asp-route-packageName="@Model.Package.Name">
+                        <div class="row">
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label">Rating</label>
+                                <select asp-for="ReviewRating" class="form-select">
+                                    <option value="5">★★★★★ 5</option>
+                                    <option value="4">★★★★ 4</option>
+                                    <option value="3">★★★ 3</option>
+                                    <option value="2">★★ 2</option>
+                                    <option value="1">★ 1</option>
+                                </select>
+                            </div>
+                            <div class="col-md-9 mb-2">
+                                <label asp-for="ReviewTitle" class="form-label">Title (optional)</label>
+                                <input asp-for="ReviewTitle" class="form-control" placeholder="Great package!" />
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label asp-for="ReviewBody" class="form-label">Review *</label>
+                            <textarea asp-for="ReviewBody" class="form-control" rows="3" required placeholder="What did you think?"></textarea>
+                            <span asp-validation-for="ReviewBody" class="text-danger"></span>
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i> Submit Review</button>
+                        @if (!(User.Identity?.IsAuthenticated ?? false))
+                        {
+                            <span class="text-muted small ms-2">Posting as Anonymous — <a href="/Account/Login">login</a> to attach your name.</span>
+                        }
+                    </form>
+                </div>
+            </div>
+
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header"><h5 class="mb-0">Package Information</h5></div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Version:</dt>
+                        <dd class="col-sm-8">@Model.Package.Version</dd>
+                        <dt class="col-sm-4">Downloads:</dt>
+                        <dd class="col-sm-8">@Model.Package.Downloads.ToString("N0")</dd>
+                        <dt class="col-sm-4">Views:</dt>
+                        <dd class="col-sm-8">@Model.Package.ViewCount.ToString("N0")</dd>
+                        <dt class="col-sm-4">Updated:</dt>
+                        <dd class="col-sm-8">@Model.Package.LastUpdatedDateTime.ToString("MMM dd, yyyy")</dd>
+                        @if (!string.IsNullOrEmpty(Model.Package.MainFile))
+                        {
+                            <dt class="col-sm-4">Main File:</dt>
+                            <dd class="col-sm-8"><code>@Model.Package.MainFile</code> <small class="text-muted d-block">symlinked to bin</small></dd>
+                        }
+                        else
+                        {
+                            <dt class="col-sm-4">Main File:</dt>
+                            <dd class="col-sm-8"><span class="badge bg-danger">Missing — install will fail</span></dd>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.Package.Installer))
+                        {
+                            <dt class="col-sm-4">Installer:</dt>
+                            <dd class="col-sm-8"><code>@Model.Package.Installer</code></dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header"><h5 class="mb-0">Installation</h5></div>
+                <div class="card-body">
+                    <p class="mb-2">Install this package using Purr:</p>
+                    <div class="bg-dark text-white p-2 rounded d-flex justify-content-between align-items-center">
+                        <code class="text-white">@Model.Package.InstallCommand</code>
+                        <button class="btn btn-sm btn-outline-light ms-2" onclick="navigator.clipboard.writeText('@Model.Package.InstallCommand')"><i class="bi bi-clipboard"></i></button>
+                    </div>
+                    @if (string.IsNullOrEmpty(Model.Package.MainFile))
+                    {
+                        <div class="alert alert-warning mt-2 mb-0 py-2 small">Package has no MainFile — <code>purr install</code> won't know what to symlink. Owner should edit package.</div>
+                    }
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header"><h5 class="mb-0">Links</h5></div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(Model.Package.Homepage))
+                    {
+                        <a href="@Model.Package.Homepage" target="_blank" class="btn btn-outline-primary btn-sm me-2 mb-2"><i class="bi bi-house"></i> Homepage</a>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.Package.IssueTracker))
+                    {
+                        <a href="@Model.Package.IssueTracker" target="_blank" class="btn btn-outline-secondary btn-sm me-2 mb-2"><i class="bi bi-bug"></i> Issues</a>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.Package.Git))
+                    {
+                        <a href="@Model.Package.Git" target="_blank" class="btn btn-outline-dark btn-sm me-2 mb-2"><i class="bi bi-git"></i> Repository</a>
+                    }
+                    @if (!string.IsNullOrEmpty(Model.Package.ReadmeUrl))
+                    {
+                        <a href="@Model.Package.ReadmeUrl" target="_blank" class="btn btn-outline-info btn-sm me-2 mb-2"><i class="bi bi-file-text"></i> README</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="text-center py-5">
+        <i class="bi bi-exclamation-triangle display-1 text-muted"></i>
+        <h3 class="mt-3">Package Not Found</h3>
+        <p class="text-muted">The requested package could not be found.</p>
+        <a href="/Packages/Browse" class="btn btn-primary">Browse All Packages</a>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        function sharePackage(platform) {
+            const url = window.location.href;
+            const title = '@ViewData["MetaTitle"]';
+            const description = '@ViewData["MetaDescription"]';
+            if(platform==='twitter') window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(title + ' - ' + description)}&url=${encodeURIComponent(url)}`, '_blank');
+            if(platform==='copy') navigator.clipboard.writeText(url).then(()=>alert('Link copied!'));
+        }
+    </script>
+}

@@ -275,7 +275,8 @@ namespace Purrnet.Controllers.Api
                         Git = pkg.Git,
                         Installer = pkg.Installer,
                         Dependencies = JsonSerializer.Deserialize<List<string>>(pkg.Dependencies) ?? new List<string>(),
-                        IconUrl = pkg.IconUrl
+                        IconUrl = pkg.IconUrl,
+                        MainFile = pkg.MainFile ?? string.Empty
                     };
                     var entry = archive.CreateEntry(SanitizeFileName(pkg.Name) + ".Purrconfig.json");
                     using var es = entry.Open();
