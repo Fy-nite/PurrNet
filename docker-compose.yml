@@ -48,7 +48,8 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       # If MARIADB_CONNECTION_STRING is set in .env it wins; otherwise build from individual vars against host DB
       # Host DB is 192.168.0.180 (your server). host.docker.internal resolves to host via extra_hosts.
-      MARIADB_CONNECTION_STRING: ${MARIADB_CONNECTION_STRING:-Server=${MARIADB_HOST:-localhost};Database=${MARIADB_DATABASE:-PurrNet};User=${MARIADB_USER:-purrnet};Password=${MARIADB_PASSWORD:-purrnet};}
+      # IMPORTANT: inside a container localhost = container itself, NOT the host. Use 192.168.0.180 or host.docker.internal.
+      MARIADB_CONNECTION_STRING: ${MARIADB_CONNECTION_STRING:-Server=${MARIADB_HOST:-host.docker.internal};Database=${MARIADB_DATABASE:-PurrNet};User=${MARIADB_USER:-purrnet};Password=${MARIADB_PASSWORD:-purrnet};Port=${MARIADB_PORT:-3306};}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       BasePath: ${BASE_PATH:-/}

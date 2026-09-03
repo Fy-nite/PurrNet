@@ -37,6 +37,19 @@ var connectionString = Environment.GetEnvironmentVariable("MARIADB_CONNECTION_ST
     ?? builder.Configuration.GetConnectionString("MariaDB") 
     ?? "Server=localhost;Database=PurrNet;User=purrnet;Password=purrnet;";
 
+// Inside Docker, Server=localhost means the container itself, not the host.
+// If user left localhost in .env, transparently rewrite to host.docker.internal so the host DB at 192.168.0.180 is reachable.
+if (File.Exists("/.dockerenv") && connectionString.Contains("Server=localhost", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine("[PurrNet] Detected Server=localhost inside container — rewriting to host.docker.internal (host DB at 192.168.0.180)");
+    connectionString = connectionString.Replace("Server=localhost", "Server=host.docker.internal", StringComparison.OrdinalIgnoreCase)
+                                       .Replace("Server=127.0.0.1", "Server=host.docker.internal", StringComparison.OrdinalIgnoreCase);
+}
+if (File.Exists("/.dockerenv") && connectionString.Contains("host.docker.internal", StringComparison.OrdinalIgnoreCase))
+{
+    Console.WriteLine($"[PurrNet] Using host DB via host.docker.internal: {connectionString.Split(';')[0]};...");
+}
+
 builder.Services.AddDbContext<PurrNetDbContext>(options =>
 {
     // Use a fixed ServerVersion to avoid a DB round-trip at startup (AutoDetect crashes when DB is still booting after power outage)
