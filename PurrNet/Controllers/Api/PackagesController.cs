@@ -110,7 +110,12 @@ namespace Purrnet.Controllers.Api
                 if (package == null)
                     return NotFound($"Package '{packageName}' not found");
 
-                _ = _packageService.IncrementViewCountAsync(package.Id.ToString());
+                _ = Task.Run(async () =>
+                {
+                    using var scope = HttpContext.RequestServices.CreateScope();
+                    var svc = scope.ServiceProvider.GetRequiredService<IPackageService>();
+                    await svc.IncrementViewCountAsync(package.Id.ToString());
+                });
 
                 return Ok(new PurrConfig
                 {

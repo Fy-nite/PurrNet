@@ -53,8 +53,13 @@ namespace Purrnet.Pages.Packages
                     return Page();
                 }
 
-                // Increment view count (id is string)
-                _ = _packageService.IncrementViewCountAsync(Package.Id.ToString());
+                // Increment view count (fire-and-forget — don't block page load, but must not share DbContext)
+                _ = Task.Run(async () =>
+                {
+                    using var scope = HttpContext.RequestServices.CreateScope();
+                    var svc = scope.ServiceProvider.GetRequiredService<IPackageService>();
+                    await svc.IncrementViewCountAsync(Package.Id.ToString());
+                });
                 Reviews = await _packageService.GetPackageReviewsAsync(packageName);
                 
                 return Page();
