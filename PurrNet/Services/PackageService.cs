@@ -350,8 +350,15 @@ namespace Purrnet.Services
 
             // Truncate to avoid Data too long on existing DBs that still have varchar(255)
             string SafeTruncate(string? s, int max) => string.IsNullOrEmpty(s) ? string.Empty : s.Length <= max ? s : s.Substring(0, max);
+            // Workaround for corrupted DB where PackageReviews.Id is not AUTO_INCREMENT (seen in dboutput: Id NULL for ccl review) → Can't convert NULL to Int32
+            // Manually allocate Id so we don't rely on LAST_INSERT_ID()
+            int nextId = 1;
+            try { nextId = await _context.PackageReviews.AnyAsync() ? await _context.PackageReviews.MaxAsync(r => r.Id) + 1 : 1; } catch { nextId = new Random().Next(1000, 999999); }
+            // also clean any NULL Id rows that would block ALTER
+            try { await _context.Database.ExecuteSqlRawAsync("DELETE FROM `PackageReviews` WHERE `Id` IS NULL OR `Id` = 0"); } catch { }
             var review = new PackageReview
             {
+                Id = nextId,
                 PackageId = package.Id,
                 UserId = intUserId,
                 Rating = rating,
