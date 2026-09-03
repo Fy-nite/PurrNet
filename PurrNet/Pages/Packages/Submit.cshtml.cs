@@ -81,6 +81,9 @@ namespace Purrnet.Pages.Packages
         [Display(Name = "Supported Platforms (comma-separated)")]
         public string? SupportedPlatforms { get; set; }
 
+        [BindProperty]
+        public bool IsLibrary { get; set; }
+
         public string? Message { get; set; }
         public bool IsSuccess { get; set; }
 
@@ -163,7 +166,8 @@ namespace Purrnet.Pages.Packages
                     MainFile = MainFile.Trim(),
                     IconUrl = IconUrl?.Trim() ?? string.Empty,
                     License = License?.Trim() ?? string.Empty,
-                    SupportedPlatforms = string.IsNullOrWhiteSpace(SupportedPlatforms) ? new List<string>() : SupportedPlatforms.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList()
+                    SupportedPlatforms = string.IsNullOrWhiteSpace(SupportedPlatforms) ? new List<string>() : SupportedPlatforms.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList(),
+                    IsLibrary = IsLibrary
                 };
 
                 // Get current user info for package creation tracking

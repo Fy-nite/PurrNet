@@ -71,6 +71,16 @@
                             </div>
 
                             <div class="mb-3">
+                                <label class="form-label fw-semibold">Package Type</label>
+                                <div>
+                                    <input type="radio" class="btn-check" name="IsLibrary" id="adminTypeApp" value="false" @(Model.Package.IsLibrary == 0 ? "checked" : "")>
+                                    <label class="btn btn-outline-primary me-1" for="adminTypeApp"><i class="bi bi-terminal me-1"></i>Application</label>
+                                    <input type="radio" class="btn-check" name="IsLibrary" id="adminTypeLib" value="true" @(Model.Package.IsLibrary == 1 ? "checked" : "")>
+                                    <label class="btn btn-outline-primary" for="adminTypeLib"><i class="bi bi-books me-1"></i>Library</label>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
                                 <label class="form-label fw-semibold">Dependencies <span class="text-muted">(comma-separated)</span></label>
                                 <input type="text" name="Dependencies" class="form-control" value="@string.Join(", ", Model.Package.DependenciesList)" />
                             </div>

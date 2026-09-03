@@ -60,6 +60,7 @@ namespace Purrnet.Services
                 Dependencies = JsonSerializer.Serialize(purrConfig.Dependencies),
                 IconUrl = purrConfig.IconUrl,
                 MainFile = purrConfig.MainFile,
+                IsLibrary = purrConfig.IsLibrary ? 1 : 0,
                 InstallCommand = $"purr install {purrConfig.Name}",
                 OwnerId = ownerId != null ? int.Parse(ownerId) : null,
                 CreatedAt = DateTime.UtcNow.ToString("O"),
@@ -99,6 +100,7 @@ namespace Purrnet.Services
             package.Dependencies = JsonSerializer.Serialize(purrConfig.Dependencies);
             package.IconUrl = purrConfig.IconUrl;
             package.MainFile = string.IsNullOrWhiteSpace(purrConfig.MainFile) ? package.MainFile : purrConfig.MainFile;
+            package.IsLibrary = purrConfig.IsLibrary ? 1 : 0;
             package.LastUpdated = DateTime.UtcNow.ToString("O");
             package.UpdatedBy = updatedBy;
             // Keep InstallCommand in sync with name

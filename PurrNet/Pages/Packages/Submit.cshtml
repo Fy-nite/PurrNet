@@ -114,6 +114,16 @@
                         <input asp-for="SupportedPlatforms" class="form-control" placeholder="linux, windows, osx">
                         <div class="form-text">Comma-separated (e.g. <code>linux, windows, macos</code>)</div>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Package Type</label>
+                        <div>
+                            <input type="radio" class="btn-check" asp-for="IsLibrary" value="false" id="submitTypeApp" checked>
+                            <label class="btn btn-outline-primary me-1" for="submitTypeApp"><i class="bi bi-terminal me-1"></i>Application or tool</label>
+                            <input type="radio" class="btn-check" asp-for="IsLibrary" value="true" id="submitTypeLib">
+                            <label class="btn btn-outline-primary" for="submitTypeLib"><i class="bi bi-books me-1"></i>Library</label>
+                        </div>
+                        <div class="form-text">Libraries are code other packages link against.</div>
+                    </div>
                     
                     <div class="mb-3">
                         <label asp-for="Dependencies" class="form-label"></label>

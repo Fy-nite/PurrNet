@@ -121,6 +121,15 @@
                         <div class="form-text"><strong>Required.</strong> Binary inside release to symlink to bin.</div>
                         <span asp-validation-for="MainFile" class="text-danger"></span>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Package Type</label>
+                        <div>
+                            <input type="radio" class="btn-check" asp-for="IsLibrary" value="false" id="editTypeApp" checked="@(!Model.IsLibrary)">
+                            <label class="btn btn-outline-primary me-1" for="editTypeApp"><i class="bi bi-terminal me-1"></i>Application</label>
+                            <input type="radio" class="btn-check" asp-for="IsLibrary" value="true" id="editTypeLib" checked="@(Model.IsLibrary)">
+                            <label class="btn btn-outline-primary" for="editTypeLib"><i class="bi bi-books me-1"></i>Library</label>
+                        </div>
+                    </div>
                     
                     <div class="mb-3">
                         <label asp-for="Dependencies" class="form-label"></label>

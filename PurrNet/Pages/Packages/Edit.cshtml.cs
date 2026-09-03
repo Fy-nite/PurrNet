@@ -79,6 +79,9 @@ namespace Purrnet.Pages.Packages
         [Display(Name = "Main File")]
         public string MainFile { get; set; } = string.Empty;
 
+        [BindProperty]
+        public bool IsLibrary { get; set; }
+
         public string? Message { get; set; }
         public bool IsSuccess { get; set; }
         public Package? OriginalPackage { get; set; }
@@ -129,6 +132,7 @@ namespace Purrnet.Pages.Packages
             LicenseUrl = package.LicenseUrl;
             Installer = package.Installer;
             MainFile = package.MainFile ?? string.Empty;
+            IsLibrary = package.IsLibrary == 1;
             Dependencies = string.Join(", ", package.DependenciesList);
             Keywords = string.Join(", ", package.KeywordsList);
             SupportedPlatforms = string.Join(", ", package.SupportedPlatformsList);
@@ -218,6 +222,7 @@ namespace Purrnet.Pages.Packages
                     Git = Git.Trim(),
                     Installer = Installer?.Trim() ?? string.Empty,
                     MainFile = MainFile?.Trim() ?? string.Empty,
+                    IsLibrary = IsLibrary,
                     Dependencies = dependenciesList,
                     Keywords = keywordsList
                 };

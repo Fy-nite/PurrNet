@@ -50,6 +50,10 @@
                                         <strong>
                                             <a asp-page="/Packages/Details" asp-route-name="@pkg.Name">@pkg.Name</a>
                                         </strong>
+                                        @if (pkg.IsLibrary == 1)
+                                        {
+                                            <span class="badge bg-info ms-1" title="This package is a library"><i class="bi bi-books"></i> Library</span>
+                                        }
                                         @if (!string.IsNullOrEmpty(pkg.Description))
                                         {
                                             <br /><small class="text-muted">@(pkg.Description.Length > 60 ? pkg.Description.Substring(0, 60) + "…" : pkg.Description)</small>

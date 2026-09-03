@@ -47,7 +47,8 @@ namespace Purrnet.Pages.Admin
             string? Categories,
             string? License,
             string? SupportedPlatforms,
-            string? IconUrl)
+            string? IconUrl,
+            bool IsLibrary = false)
         {
             if (!User.HasClaim("IsAdmin", "1"))
                 return Forbid();
@@ -76,7 +77,8 @@ namespace Purrnet.Pages.Admin
                 License = License ?? string.Empty,
                 SupportedPlatforms = Split(SupportedPlatforms),
                 IconUrl = IconUrl?.Trim() ?? string.Empty,
-                MainFile = MainFile?.Trim()
+                MainFile = MainFile?.Trim(),
+                IsLibrary = IsLibrary
             };
 
             var updatedBy = User.Identity?.Name ?? "admin";
