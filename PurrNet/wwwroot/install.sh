@@ -68,8 +68,9 @@ install() {
 
   local response
   response=$(get_latest_version) || exit 1
-  local version download_url
-  version=$(echo "$response" | head -1 | tr -d '\r\n')
+  local tag version download_url
+  tag=$(echo "$response" | head -1 | tr -d '\r\n')
+  version="${tag#v}"  # strip v prefix for NuGet
   download_url=$(echo "$response" | sed -n '2p' | tr -d '\r\n')
   echo "Latest version: $version"
   download_and_install "$version" "$download_url"

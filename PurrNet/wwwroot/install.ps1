@@ -93,7 +93,8 @@ function Install-Purr {
     Assert-Command dotnet
     $latest = Get-LatestVersion
     if (-not $latest) { return }
-    $version = $latest.Version.ToString().Trim()
+    $tag = $latest.Version.ToString().Trim()
+    $version = $tag -replace '^v', ''
     $downloadUrl = $latest.DownloadUrl
     Write-Host "Latest version: $version"
     Download-And-Install -Version $version -DownloadUrl $downloadUrl | Out-Null
