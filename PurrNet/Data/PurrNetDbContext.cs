@@ -37,7 +37,6 @@ namespace Purrnet.Data
             modelBuilder.Entity<Category>(entity =>
             {
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.Id).ValueGeneratedOnAdd().UseMySqlIdentityColumn();
             });
 
             modelBuilder.Entity<PackageReview>(entity =>

@@ -378,7 +378,6 @@ startupLifetime.ApplicationStarted.Register(() =>
                 await TryAlter("ALTER TABLE `Packages` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Packages.Id AUTO_INCREMENT");
                 await TryAlter("ALTER TABLE `Users` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Users.Id AUTO_INCREMENT");
                 await TryAlter("ALTER TABLE `PackageReviews` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured PackageReviews.Id AUTO_INCREMENT");
-                await TryAlter("ALTER TABLE `Categories` MODIFY COLUMN `Id` INT NOT NULL AUTO_INCREMENT", "Ensured Categories.Id AUTO_INCREMENT");
                 await dbContext.SeedDefaultCategoriesAsync();
                 startupLogger.LogInformation("MariaDB ready (attempt {Attempt}/{Max})", attempt, maxAttempts);
                 break;
