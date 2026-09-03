@@ -52,21 +52,30 @@ if (File.Exists("/.dockerenv") && connectionString.Contains("host.docker.interna
 
 // HDD-slow / packet out-of-order fix: MariaDB on HDD + MySqlConnector pooling = "Packet out-of-order. Expected 1; got 3."
 // Root cause is pooled connection reused after server closed it (wait_timeout / slow disk) and pipelining left unread payload.
-// Fix: disable pipelining, disable pooling (each request gets fresh connection — tiny cost for low-traffic PurrNet), and don't AutoDetect version at startup.
-if (!connectionString.Contains("Pipelining", StringComparison.OrdinalIgnoreCase))
-    connectionString += ";Pipelining=false";
-if (!connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
-    connectionString += ";Pooling=false";
-if (!connectionString.Contains("ConnectionIdleTimeout", StringComparison.OrdinalIgnoreCase))
-    connectionString += ";ConnectionIdleTimeout=5";
-if (!connectionString.Contains("DefaultCommandTimeout", StringComparison.OrdinalIgnoreCase))
-    connectionString += ";DefaultCommandTimeout=60";
-if (!connectionString.Contains("AllowPublicKeyRetrieval", StringComparison.OrdinalIgnoreCase))
-    connectionString += ";AllowPublicKeyRetrieval=true";
-if (!connectionString.Contains("SslMode", StringComparison.OrdinalIgnoreCase))
-    connectionString += ";SslMode=None";
+// Fix: FORCE disable pipelining + pooling via MySqlConnectionStringBuilder (each request gets fresh connection — tiny cost for low-traffic PurrNet), and don't AutoDetect version at startup.
+try
+{
+    var csb = new MySqlConnector.MySqlConnectionStringBuilder(connectionString);
+    csb.Pipelining = false;
+    csb.Pooling = false;
+    // keep idle/timeout sane for HDD
+    csb.ConnectionIdleTimeout = 5;
+    csb.DefaultCommandTimeout = 60;
+    csb.AllowPublicKeyRetrieval = true;
+    csb.SslMode = MySqlConnector.MySqlSslMode.None;
+    // preserve Port if user set it via MARIADB_PORT, otherwise builder keeps 3306
+    connectionString = csb.ConnectionString;
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"[PurrNet] MySqlConnectionStringBuilder rewrite failed, falling back to raw string: {ex.Message}");
+    if (!connectionString.Contains("Pipelining", StringComparison.OrdinalIgnoreCase))
+        connectionString += ";Pipelining=false";
+    if (!connectionString.Contains("Pooling", StringComparison.OrdinalIgnoreCase))
+        connectionString += ";Pooling=false";
+}
 
-Console.WriteLine($"[PurrNet] Final connecting string: {string.Join(";", connectionString.Split(';').Where(s => !s.ToLower().Contains("password")))}");
+Console.WriteLine($"[PurrNet] Final connecting string: {string.Join(";", connectionString.Split(';').Where(s => !s.ToLower().Contains("password") && !s.ToLower().Contains("pwd")))} (Pooling=false,Pipelining=false)");
 
 builder.Services.AddDbContext<PurrNetDbContext>(options =>
 {
