@@ -387,8 +387,6 @@ startupLifetime.ApplicationStarted.Register(() =>
                     else startupLogger.LogDebug("PackageReviews already LONGTEXT, skip ALTER");
                 }
                 catch (Exception ex) { startupLogger.LogDebug(ex, "Longtext check failed, attempting ALTER anyway"); await TryAlter("ALTER TABLE `PackageReviews` MODIFY COLUMN `ReviewerAvatarUrl` LONGTEXT NULL, MODIFY COLUMN `Title` LONGTEXT NULL, MODIFY COLUMN `Body` LONGTEXT NULL, MODIFY COLUMN `ReviewerName` VARCHAR(255) NULL", "Ensured PackageReviews columns are LONGTEXT"); }
-                // Clean corrupted row seen in dboutput: PackageReviews Id NULL (second review for ccl PackageId 9) — delete first, otherwise AUTO_INCREMENT ALTER fails
-                await TryAlter("DELETE FROM `PackageReviews` WHERE `Id` IS NULL OR `Id` = 0", "Cleaned NULL Id PackageReviews");
                 // IsLibrary — only if column doesn't exist yet
                 await TryAlter("ALTER TABLE `Packages` ADD COLUMN `IsLibrary` INT NOT NULL DEFAULT 0", "Added Packages.IsLibrary");
                 // Index for reviews — PackageReviews.PackageId was missing, causing full scan on HDD (5+ min on large table)
