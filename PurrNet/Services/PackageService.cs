@@ -25,15 +25,16 @@ namespace Purrnet.Services
 
         private void InvalidatePackageCaches(string? packageName = null)
         {
-            // Package writes are rare vs reads, so compact a portion on write.
-            // If a specific package is known, remove its key; otherwise compact search/stats.
             if (packageName != null)
             {
-                _cache.Remove($"pkg:{packageName.ToLowerInvariant()}");
-                _cache.Remove($"pkgver:{packageName.ToLowerInvariant()}");
-                _cache.Remove($"reviews:{packageName.ToLowerInvariant()}");
+                var key = packageName.ToLowerInvariant();
+                _cache.Remove($"pkg:{key}");
+                _cache.Remove($"pkg:{key}:latest");
+                _cache.Remove($"pkgver:{key}");
+                _cache.Remove($"reviews:{key}");
             }
-            if (_cache is MemoryCache mc) mc.Compact(0.3); // evict ~30% (oldest) — effectively clears search/stats which share 15m TTL
+            // Evict all search/stats/tag/author caches — any list that could contain this package
+            if (_cache is MemoryCache mc) mc.Compact(1.0);
         }
 
         public async Task<List<Package>> GetAllPackagesAsync()
